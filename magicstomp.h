@@ -1,3 +1,5 @@
+#ifndef MAGICSTOMP_H
+#define MAGICSTOMP_H
 
 const int numOfPatches = 99;
 const int PatchNameLength = 12;
@@ -23,5 +25,7 @@ enum class SysExDumpState
     ExpectingEffectData,
     ExpectingEnd
 };
+
+#endif
 
 
