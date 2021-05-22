@@ -200,6 +200,8 @@ void MSSwitcherThread::scan()
                     cap & (SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ))
             {
                 subscribePort( handle, mcpid, thisInPort);
+                cout << "Hardware MIDI IN device found[" << static_cast<unsigned int>(mcpid.clientId())
+                     << "," << static_cast<unsigned int>(mcpid.portId()) << "]" << endl;
             }
 
         }
@@ -348,18 +350,22 @@ void MSSwitcherThread::run()
 
             if(isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
             {
-                sysExBufferMap.insert({mscpid, vector<unsigned char>()});
+                auto findIter = msMap.find(mscpid);
+                if(findIter == msMap.end())
+                {
+                    sysExBufferMap.insert({mscpid, vector<unsigned char>()});
 
-                subscribePort(handle, thisOutPort, mscpid);
-                subscribePort(handle, mscpid, thisInPort);
-                pair<map<MidiClientPortId, MSDataState>::iterator,bool> ret;
-                ret = msMap.insert({mscpid, MSDataState()} );
-                ret.first->second.dumpState = SysExDumpState::ExpectingStart;
-                this_thread::sleep_for(std::chrono::milliseconds(1000)); // Wait 1s until MS gets ready after power on
-                requestPatch(++(ret.first->second.patchInRequest), thisOutPort, ret.first->first);
+                    subscribePort(handle, thisOutPort, mscpid);
+                    subscribePort(handle, mscpid, thisInPort);
+                    pair<map<MidiClientPortId, MSDataState>::iterator,bool> ret;
+                    ret = msMap.insert({mscpid, MSDataState()} );
+                    ret.first->second.dumpState = SysExDumpState::ExpectingStart;
+                    this_thread::sleep_for(std::chrono::milliseconds(1000)); // Wait 1s until MS gets ready after power on
+                    requestPatch(++(ret.first->second.patchInRequest), thisOutPort, ret.first->first);
 
-                cout << "Magicstomp connected[" << static_cast<unsigned int>(ev->data.addr.client)
-                     << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
+                    cout << "Magicstomp connected[" << static_cast<unsigned int>(ev->data.addr.client)
+                         << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
+                }
             }
             else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
                     cap & (SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ))
