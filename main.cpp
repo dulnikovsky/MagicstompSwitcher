@@ -3,40 +3,15 @@
 #include <vector>
 #include <map>
 #include <alsa/asoundlib.h>
+#include <chrono>
+#include <thread>
+
 #include "midiportidalsa.h"
 
+#include "magicstomp.h"
+#include "alsafunc.h"
+
 using namespace std;
-
-static const int numOfPatches = 99;
-static const int PatchNameLength = 12;
-enum MagistompPatchDesc
-{
-    PatchType,
-    Control1 = 2,
-    Control2 = 4,
-    Control3 = 6,
-    PatchName = 16,
-    PatchNameLast = PatchName + PatchNameLength,
-    PatchCommonLength = 0x20,
-    PatchEffectLength = 0x7F,
-    PatchTotalLength = PatchCommonLength + PatchEffectLength
-};
-
-enum class SysExDumpState
-{
-    Idle,
-    ExpectingStart,
-    ExpectingCommonData,
-    ExpectingEffectData,
-    ExpectingEnd
-};
-
-struct MSDataState
-{
-    int patchInRequest{-1};
-    SysExDumpState dumpState{SysExDumpState::Idle};
-    vector<unsigned char> data;
-};
 
 constexpr int ub99SysExHeaderSize = 8;
 const unsigned char ub99SysExHeader[ub99SysExHeaderSize] = { 0xF0, 0x43, 0x7D, 0x30, 0x55, 0x42, 0x39, 0x39 };
@@ -47,8 +22,12 @@ MidiClientPortId thisOutPort;
 
 static const char *appName = "MagicstompSwitcher";
 
-static const char *ub99ClientName = "UB99";
-static const char *ub99PortName = "UB99 MIDI 1";
+struct MSDataState
+{
+    int patchInRequest{-1};
+    SysExDumpState dumpState{SysExDumpState::Idle};
+    vector<unsigned char> data;
+};
 
 map<MidiClientPortId, MSDataState> msMap;
 
@@ -176,22 +155,7 @@ int sendPatchToTemp(unsigned char index, const MidiClientPortId &srcPort, const 
     return ret;
 }
 
-int subscribePort( unsigned char senderClientId, unsigned char senderPortId, unsigned char destClientId, unsigned char destPortId)
-{
-    snd_seq_addr_t sender, dest;
-    snd_seq_port_subscribe_t* subs;
-    snd_seq_port_subscribe_alloca(&subs);
 
-    sender.client = static_cast<unsigned char>(senderClientId);
-    sender.port = static_cast<unsigned char>(senderPortId);
-    dest.client = static_cast<unsigned char>(destClientId);
-    dest.port = static_cast<unsigned char>(destPortId);
-
-    snd_seq_port_subscribe_set_sender(subs, &sender);
-    snd_seq_port_subscribe_set_dest(subs, &dest);
-
-    return snd_seq_subscribe_port(handle, subs);
-}
 
 int midiSystemInit()
 {
@@ -210,7 +174,15 @@ int midiSystemInit()
     thisInPort = MidiClientPortId(snd_seq_client_id(handle), inPort);
     thisOutPort = MidiClientPortId(snd_seq_client_id(handle), outPort);
 
-    return subscribePort(SND_SEQ_CLIENT_SYSTEM, SND_SEQ_PORT_SYSTEM_ANNOUNCE, snd_seq_client_id(handle), inPort);
+    return subscribePort(handle, MidiClientPortId(SND_SEQ_CLIENT_SYSTEM, SND_SEQ_PORT_SYSTEM_ANNOUNCE), thisInPort);
+}
+
+bool isMagicstomp(const char *clientName, const char *portName)
+{
+    const char *ub99ClientName = "UB99";
+    const char *ub99PortName = "UB99 MIDI 1";
+
+    return(strncmp(portName, ub99PortName, 11) == 0 && strncmp(clientName, ub99ClientName, 4) == 0);
 }
 
 void scan()
@@ -227,20 +199,23 @@ void scan()
         if( (clientId == SND_SEQ_CLIENT_SYSTEM) || (clientId == snd_seq_client_id(handle)))
             continue;
 
-        cout <<  snd_seq_client_info_get_name(cinfo) << endl;
-        /* reset query info */
         snd_seq_port_info_set_client(pinfo, clientId);
         snd_seq_port_info_set_port(pinfo, -1);
         while (snd_seq_query_next_port(handle, pinfo) >= 0)
         {
-            if(strncmp(snd_seq_port_info_get_name(pinfo), ub99PortName, 11) == 0 && strncmp(snd_seq_client_info_get_name(cinfo), ub99ClientName, 4) == 0)
+            if( isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
             {
-                msMap.insert( {MidiClientPortId(clientId, snd_seq_port_info_get_port(pinfo)), MSDataState()} );
-                subscribePort(thisOutPort.clientId(), thisOutPort.portId(), snd_seq_port_info_get_client(pinfo), snd_seq_port_info_get_port(pinfo));
+                MidiClientPortId mcpid(clientId, snd_seq_port_info_get_port(pinfo));
+
+                msMap.insert( {mcpid, MSDataState()} );
+                subscribePort(handle, thisOutPort, mcpid);
+
+                cout << "Magicstomp found[" << static_cast<unsigned int>(mcpid.clientId())
+                     << "," << static_cast<unsigned int>(mcpid.portId()) << "]" << endl;
             }
             else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE)
             {
-                subscribePort( snd_seq_port_info_get_client(pinfo), snd_seq_port_info_get_port(pinfo), thisInPort.clientId(), thisInPort.portId());
+                subscribePort( handle, MidiClientPortId(snd_seq_port_info_get_client(pinfo), snd_seq_port_info_get_port(pinfo)), thisInPort);
             }
 
         }
@@ -261,7 +236,7 @@ int main()
     {
         sysExBufferMap.insert({it.first, vector<unsigned char>()});
 
-        subscribePort(it.first.clientId(), it.first.portId(), thisInPort.clientId(), thisInPort.portId());
+        subscribePort(handle, it.first, thisInPort);
         it.second.dumpState = SysExDumpState::ExpectingStart;
         requestPatch(++(it.second.patchInRequest), thisOutPort, it.first);
     }
@@ -316,6 +291,7 @@ int main()
                                 {
                                     msDataState.dumpState = SysExDumpState::Idle;
                                     msDataState.patchInRequest = -1;
+                                    unSubscribePort(handle, msMapIter->first, thisInPort);
                                 }
                                 else
                                 {
@@ -372,6 +348,44 @@ int main()
                                     &(*(it.second.data.cbegin()+PatchTotalLength*currentProgram)),
                                     &(*(it.second.data.cbegin()+PatchTotalLength*currentProgram)) + PatchCommonLength);
                 }
+            }
+        }
+        else if(ev->type==SND_SEQ_EVENT_PORT_START)
+        {
+            snd_seq_client_info_t *cinfo;
+            snd_seq_port_info_t *pinfo;
+
+            snd_seq_client_info_alloca(&cinfo);
+            snd_seq_port_info_alloca(&pinfo);
+
+            snd_seq_get_any_client_info(handle, ev->data.addr.client, cinfo);
+            snd_seq_get_any_port_info(handle, ev->data.addr.client, ev->data.addr.port, pinfo);
+            if(isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
+            {
+                MidiClientPortId mscpid(ev->data.addr.client, ev->data.addr.port);
+                sysExBufferMap.insert({mscpid, vector<unsigned char>()});
+
+                subscribePort(handle, thisOutPort, mscpid);
+                subscribePort(handle, mscpid, thisInPort);
+                pair<map<MidiClientPortId, MSDataState>::iterator,bool> ret;
+                ret = msMap.insert({mscpid, MSDataState()} );
+                ret.first->second.dumpState = SysExDumpState::ExpectingStart;
+                this_thread::sleep_for(std::chrono::milliseconds(1000)); // Wait 1s until MS gets ready after power on
+                requestPatch(++(ret.first->second.patchInRequest), thisOutPort, ret.first->first);
+
+                cout << "Magicstomp connected[" << static_cast<unsigned int>(ev->data.addr.client)
+                     << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
+            }
+        }
+        else if(ev->type==SND_SEQ_EVENT_PORT_EXIT)
+        {
+            MidiClientPortId mscpid(ev->data.addr.client, ev->data.addr.port);
+
+            if(msMap.erase(mscpid) == 1)
+            {
+                sysExBufferMap.erase(mscpid);
+                cout << "Magicstomp disconnected[" << static_cast<unsigned int>(ev->data.addr.client)
+                     << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
             }
         }
 
