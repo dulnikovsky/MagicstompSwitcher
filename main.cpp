@@ -203,19 +203,21 @@ void scan()
         snd_seq_port_info_set_port(pinfo, -1);
         while (snd_seq_query_next_port(handle, pinfo) >= 0)
         {
+            MidiClientPortId mcpid(clientId, snd_seq_port_info_get_port(pinfo));
+            unsigned int cap = snd_seq_port_info_get_capability(pinfo);
+
             if( isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
             {
-                MidiClientPortId mcpid(clientId, snd_seq_port_info_get_port(pinfo));
-
                 msMap.insert( {mcpid, MSDataState()} );
                 subscribePort(handle, thisOutPort, mcpid);
 
                 cout << "Magicstomp found[" << static_cast<unsigned int>(mcpid.clientId())
                      << "," << static_cast<unsigned int>(mcpid.portId()) << "]" << endl;
             }
-            else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE)
+            else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
+                    cap & (SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ))
             {
-                subscribePort( handle, MidiClientPortId(snd_seq_port_info_get_client(pinfo), snd_seq_port_info_get_port(pinfo)), thisInPort);
+                subscribePort( handle, mcpid, thisInPort);
             }
 
         }
@@ -360,9 +362,11 @@ int main()
 
             snd_seq_get_any_client_info(handle, ev->data.addr.client, cinfo);
             snd_seq_get_any_port_info(handle, ev->data.addr.client, ev->data.addr.port, pinfo);
+            unsigned int cap = snd_seq_port_info_get_capability(pinfo);
+            MidiClientPortId mscpid(ev->data.addr.client, ev->data.addr.port);
+
             if(isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
             {
-                MidiClientPortId mscpid(ev->data.addr.client, ev->data.addr.port);
                 sysExBufferMap.insert({mscpid, vector<unsigned char>()});
 
                 subscribePort(handle, thisOutPort, mscpid);
@@ -374,6 +378,13 @@ int main()
                 requestPatch(++(ret.first->second.patchInRequest), thisOutPort, ret.first->first);
 
                 cout << "Magicstomp connected[" << static_cast<unsigned int>(ev->data.addr.client)
+                     << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
+            }
+            else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
+                    cap & (SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ))
+            {
+                subscribePort( handle, mscpid, thisInPort);
+                cout << "Hardware MIDI IN device connected[" << static_cast<unsigned int>(ev->data.addr.client)
                      << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
             }
         }
