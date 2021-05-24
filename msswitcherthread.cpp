@@ -332,6 +332,11 @@ void MSSwitcherThread::run()
                     sendPatchToTemp(currentProgram, thisOutPort, it.first,
                                     &(*(it.second.data.cbegin()+PatchTotalLength*currentProgram)),
                                     &(*(it.second.data.cbegin()+PatchTotalLength*currentProgram)) + PatchCommonLength);
+
+                    unsigned int id = (it.first.clientId() << 8) | it.first.portId();
+                    const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(it.second.data.cbegin()+PatchTotalLength*currentProgram + PatchName)));
+                    QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
+                    emit patchNameChanged(id, QString(nameArr));
                 }
             }
         }
@@ -382,6 +387,9 @@ void MSSwitcherThread::run()
             if(msMap.erase(mscpid) == 1)
             {
                 sysExBufferMap.erase(mscpid);
+
+                emit msDisconnected((mscpid.clientId() << 8) | mscpid.portId());
+
                 cout << "Magicstomp disconnected[" << static_cast<unsigned int>(ev->data.addr.client)
                      << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
             }

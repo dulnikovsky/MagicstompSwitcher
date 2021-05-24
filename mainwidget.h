@@ -36,6 +36,10 @@ public:
 public slots:
     void setCurrentProgram(unsigned char val);
 
+    void onPatchNameChanged(unsigned int id, const QString &name);
+
+    void onMsDisconnected(unsigned int id);
+
 private:
     QLabel *programNumberLabel;
 };
