@@ -27,6 +27,8 @@ set(PROJECT_SOURCES
     msswitcherthread.cpp
     mainwidget.h
     mainwidget.cpp
+    currentpatchesmodel.h
+    currentpatchesmodel.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

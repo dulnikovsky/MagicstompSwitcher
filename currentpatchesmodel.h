@@ -19,16 +19,32 @@
 ** be met: https://www.gnu.org/licenses/gpl-2.0.html and
 ** https://www.gnu.org/licenses/gpl-3.0.html.
 **/
-#include "midiportidalsa.h"
+#ifndef CURRENTPATCHESMODEL_H
+#define CURRENTPATCHESMODEL_H
 
-#include <tuple>
+#include <QAbstractItemModel>
 
-bool operator ==(const MidiPortIdAlsa &a, const MidiPortIdAlsa &b)
+class CurrentPatchesModel : public QAbstractItemModel
 {
-    return std::tie(a.client, a.port) == std::tie(b.client, b.port);
-}
+    Q_OBJECT
+public:
+    CurrentPatchesModel(QObject *parent = Q_NULLPTR) : QAbstractItemModel(parent) {}
 
-bool operator <(const MidiPortIdAlsa &a, const MidiPortIdAlsa &b)
-{
-    return std::tie(a.client, a.port) < std::tie(b.client, b.port);
-}
+    QVariant data(const QModelIndex &index, int role) const override;
+
+    int rowCount(const QModelIndex &) const override { return idList.size();}
+    int columnCount(const QModelIndex &) const override { return 1;}
+
+    QModelIndex index(int row, int column, const QModelIndex &) const override { return createIndex(row, column);}
+    QModelIndex parent(const QModelIndex &) const override { return QModelIndex();}
+
+public slots:
+    void onCurrentPatchChanged(unsigned int msId, const QString &name);
+    void onMSRemoved(unsigned int msId);
+
+private:
+    QList<unsigned int> idList;
+    QStringList nameList;
+};
+
+#endif // CURRENTPATCHESMODEL_H

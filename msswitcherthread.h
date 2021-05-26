@@ -2,8 +2,7 @@
 **
 ** Copyright (C) 2021 Robert Vetter.
 **
-** This file is part of the MagicstompFrenzy - an editor for Yamaha Magicstomp
-** effect processor
+** This file is part of the MagicstompSwitcher
 **
 ** THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
 ** ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY

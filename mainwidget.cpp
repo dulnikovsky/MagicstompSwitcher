@@ -2,8 +2,7 @@
 **
 ** Copyright (C) 2021 Robert Vetter.
 **
-** This file is part of the MagicstompFrenzy - an editor for Yamaha Magicstomp
-** effect processor
+** This file is part of the MagicstompSwitcher
 **
 ** THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
 ** ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY
@@ -30,9 +29,13 @@
 #include <QListView>
 #include <QDebug>
 
+#include "currentpatchesmodel.h"
+
 MainWidget::MainWidget(QWidget *parent)
     :QWidget(parent)
 {
+    cpModel = new CurrentPatchesModel(this);
+
     QPalette plt = this->palette();
     plt.setColor(QPalette::Window, Qt::black);
     plt.setColor(QPalette::WindowText, QColor(255,165,0));
@@ -40,39 +43,45 @@ MainWidget::MainWidget(QWidget *parent)
 
     programNumberLabel = new QLabel(this);
     QFont fnt = programNumberLabel->font();
-    fnt.setPixelSize(144);
+    fnt.setPointSize(72);
     fnt.setBold(true);
     programNumberLabel->setFont(fnt);
 
     QLabel *title = new QLabel("MagicstompSwitcher");
+    title->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     plt.setColor(QPalette::WindowText, QColor(112, 169, 255));
     title->setPalette(plt);
 
     QListView *listView = new QListView();
-    listView->setStyleSheet("background-color: black; color: yellow;");
+    listView->setModel(cpModel);
+    listView->setStyleSheet("background-color: black; color: Chartreuse");
 
-    QHBoxLayout *mainLyt = new QHBoxLayout();
+    QVBoxLayout *mainLyt = new QVBoxLayout();
 
-    QVBoxLayout *vLyt = new QVBoxLayout();
-    vLyt->addWidget(programNumberLabel);
-    vLyt->addWidget(title);
+    QHBoxLayout *hLyt = new QHBoxLayout();
+    hLyt->addWidget(programNumberLabel);
+    hLyt->addWidget(listView);
 
-    mainLyt->addLayout(vLyt);
-    mainLyt->addWidget(listView);
+    mainLyt->addLayout(hLyt);
+    mainLyt->addWidget(title);
     this->setLayout(mainLyt);
 }
 
 void MainWidget::setCurrentProgram(unsigned char val)
 {
-    programNumberLabel->setText(QString::number(val+1));
+
+    QString strVal;
+    if(val < 9)
+        strVal.append(' ');
+    programNumberLabel->setText(strVal + QString::number(val+1));
 }
 
 void MainWidget::onPatchNameChanged(unsigned int id, const QString &name)
 {
-    qDebug() << "New Patch name:" << name << " ,id=" << id;
+    cpModel->onCurrentPatchChanged(id, name);
 }
 
 void MainWidget::onMsDisconnected(unsigned int id)
 {
-
+    cpModel->onMSRemoved(id);
 }

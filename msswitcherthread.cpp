@@ -2,8 +2,7 @@
 **
 ** Copyright (C) 2021 Robert Vetter.
 **
-** This file is part of the MagicstompFrenzy - an editor for Yamaha Magicstomp
-** effect processor
+** This file is part of the MagicstompSwitcher
 **
 ** THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
 ** ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY
@@ -369,7 +368,7 @@ void MSSwitcherThread::run()
                     requestPatch(++(ret.first->second.patchInRequest), thisOutPort, ret.first->first);
 
                     cout << "Magicstomp connected[" << static_cast<unsigned int>(ev->data.addr.client)
-                         << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
+                         << ":" << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
                 }
             }
             else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
@@ -377,7 +376,7 @@ void MSSwitcherThread::run()
             {
                 subscribePort( handle, mscpid, thisInPort);
                 cout << "Hardware MIDI IN device connected[" << static_cast<unsigned int>(ev->data.addr.client)
-                     << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
+                     << ":" << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
             }
         }
         else if(ev->type==SND_SEQ_EVENT_PORT_EXIT)
@@ -391,7 +390,7 @@ void MSSwitcherThread::run()
                 emit msDisconnected((mscpid.clientId() << 8) | mscpid.portId());
 
                 cout << "Magicstomp disconnected[" << static_cast<unsigned int>(ev->data.addr.client)
-                     << "," << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
+                     << ":" << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
             }
         }
 
