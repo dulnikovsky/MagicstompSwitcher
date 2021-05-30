@@ -1,0 +1,13 @@
+[Unit]
+Description=MagicstompSwitcher
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/MagicstompSwitcher -platform linuxfb:fb=/dev/fb1
+KillMode=process
+User=pi
+Group=pi
+
+[Install]
+WantedBy=multi-user.target

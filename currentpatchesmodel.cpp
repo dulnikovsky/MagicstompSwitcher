@@ -12,7 +12,7 @@ QVariant CurrentPatchesModel::data(const QModelIndex &index, int role) const
     else if( role == Qt::FontRole )
     {
         QFont font = qApp->font();
-        font.setPointSize(32);
+        font.setPointSize(28);
         return QVariant::fromValue<QFont>(font);
     }
     return QVariant();
