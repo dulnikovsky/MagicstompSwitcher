@@ -2,6 +2,7 @@
 #include "currentpatchesmodel.h"
 #include <QFont>
 #include <QApplication>
+#include <QColor>
 
 QVariant CurrentPatchesModel::data(const QModelIndex &index, int role) const
 {
@@ -14,6 +15,11 @@ QVariant CurrentPatchesModel::data(const QModelIndex &index, int role) const
         QFont font = qApp->font();
         font.setPointSize(28);
         return QVariant::fromValue<QFont>(font);
+    }
+    else if( role == Qt::ForegroundRole )
+    {
+        if(nameList.at(index.row()).startsWith("..."))
+            return QColor(Qt::red);
     }
     return QVariant();
 }
@@ -31,6 +37,25 @@ void CurrentPatchesModel::onCurrentPatchChanged(unsigned int msId, const QString
     else
     {
        nameList[pos] = name;
+       emit dataChanged( createIndex(pos, 0), createIndex(pos, 0));
+    }
+}
+
+void CurrentPatchesModel::onPatchRequested(unsigned int msId, int patchIdx)
+{
+    QString txt = "...Loading " + QString::number(patchIdx+1);
+
+    int pos = idList.indexOf(msId);
+    if( pos < 0)
+    {
+        beginInsertRows(QModelIndex(), idList.size(), idList.size());
+        idList.append(msId);
+        nameList.append(txt);
+        endInsertRows();
+    }
+    else
+    {
+       nameList[pos] = txt;
        emit dataChanged( createIndex(pos, 0), createIndex(pos, 0));
     }
 }

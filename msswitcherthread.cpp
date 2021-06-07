@@ -71,6 +71,9 @@ int MSSwitcherThread::requestPatch(unsigned char index, const MidiClientPortId &
     if( ret <= 0)
         return ret;
     ret = snd_seq_drain_output(handle);
+
+    emit patchRequested((destPort.clientId() << 8) | destPort.portId(), index);
+
     return ret;
 }
 
@@ -277,6 +280,15 @@ void MSSwitcherThread::run()
                                     msDataState.dumpState = SysExDumpState::Idle;
                                     msDataState.patchInRequest = -1;
                                     unSubscribePort(handle, msMapIter->first, thisInPort);
+
+                                    sendPatchToTemp(currentProgram, thisOutPort, msMapIter->first,
+                                                    &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)),
+                                                    &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)) + PatchCommonLength);
+
+                                    unsigned int id = (msMapIter->first.clientId() << 8) | msMapIter->first.portId();
+                                    const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram + PatchName)));
+                                    QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
+                                    emit patchNameChanged(id, QString(nameArr));
                                 }
                                 else
                                 {

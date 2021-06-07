@@ -48,6 +48,7 @@ public slots:
 signals:
     void programChanged(unsigned char val);
     void patchNameChanged(unsigned int id, QString patchName);
+    void patchRequested(unsigned int id, int patchIndex);
     void msDisconnected(unsigned int id);
 
 protected:

@@ -69,7 +69,6 @@ MainWidget::MainWidget(QWidget *parent)
 
 void MainWidget::setCurrentProgram(unsigned char val)
 {
-
     QString strVal;
     if(val < 9)
         strVal.append(' ');
@@ -79,6 +78,11 @@ void MainWidget::setCurrentProgram(unsigned char val)
 void MainWidget::onPatchNameChanged(unsigned int id, const QString &name)
 {
     cpModel->onCurrentPatchChanged(id, name);
+}
+
+void MainWidget::onPatchRequested(unsigned int id, int patchIdx)
+{
+    cpModel->onPatchRequested(id, patchIdx);
 }
 
 void MainWidget::onMsDisconnected(unsigned int id)

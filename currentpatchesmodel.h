@@ -40,6 +40,7 @@ public:
 
 public slots:
     void onCurrentPatchChanged(unsigned int msId, const QString &name);
+    void onPatchRequested(unsigned int msId, int patchIdx);
     void onMSRemoved(unsigned int msId);
 
 private:
