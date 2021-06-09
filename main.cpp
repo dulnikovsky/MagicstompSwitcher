@@ -12,11 +12,9 @@ int main(int argc, char *argv[])
     MSSwitcherThread mssThread;
 
     QObject::connect(&mssThread, SIGNAL(programChanged(unsigned char)), &mw, SLOT(setCurrentProgram(unsigned char)));
-    QObject::connect(&mssThread, SIGNAL(patchNameChanged(unsigned int, QString)),
-                     &mw, SLOT(onPatchNameChanged(unsigned int, QString )));
+    QObject::connect(&mssThread, SIGNAL(currentPatchChanged(unsigned int, QString, bool)),
+                     &mw, SLOT(onCurrentPatchChanged(unsigned int, QString, bool)));
 
-    QObject::connect(&mssThread, SIGNAL(patchRequested(unsigned int, int)),
-                     &mw, SLOT(onPatchRequested(unsigned int, int )));
 
     QObject::connect(&mssThread, SIGNAL(msDisconnected(unsigned int)), &mw, SLOT(onMsDisconnected(unsigned int)));
 

@@ -32,20 +32,26 @@ public:
 
     QVariant data(const QModelIndex &index, int role) const override;
 
-    int rowCount(const QModelIndex &) const override { return idList.size();}
+    int rowCount(const QModelIndex &) const override { return msMap.size();}
     int columnCount(const QModelIndex &) const override { return 1;}
 
-    QModelIndex index(int row, int column, const QModelIndex &) const override { return createIndex(row, column);}
+    QModelIndex index(int row, int column, const QModelIndex &) const override;
     QModelIndex parent(const QModelIndex &) const override { return QModelIndex();}
 
 public slots:
-    void onCurrentPatchChanged(unsigned int msId, const QString &name);
-    void onPatchRequested(unsigned int msId, int patchIdx);
+    void onCurrentPatchChanged(unsigned int msId, const QString &name, bool isRequesting);
     void onMSRemoved(unsigned int msId);
 
 private:
-    QList<unsigned int> idList;
-    QStringList nameList;
+    struct MSData
+    {
+        QString curPatchName;
+        bool is_Requesting{false};
+    };
+
+    QMap<unsigned int, MSData> msMap;
+
+
 };
 
 #endif // CURRENTPATCHESMODEL_H

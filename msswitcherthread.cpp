@@ -72,8 +72,6 @@ int MSSwitcherThread::requestPatch(unsigned char index, const MidiClientPortId &
         return ret;
     ret = snd_seq_drain_output(handle);
 
-    emit patchRequested((destPort.clientId() << 8) | destPort.portId(), index);
-
     return ret;
 }
 
@@ -274,8 +272,8 @@ void MSSwitcherThread::run()
                             //patch dump end message.
                             else if( sysExVector.at(10)==0x30 && sysExVector.at(11)==0x11 && msDataState.patchInRequest == sysExVector.at(12) && msDataState.dumpState == SysExDumpState::ExpectingEnd)
                             {
-                                msDataState.patchInRequest++;
-                                if(msDataState.patchInRequest >= numOfPatches)
+                                unsigned int id = (msMapIter->first.clientId() << 8) | msMapIter->first.portId();
+                                if(msDataState.patchInRequest >= (numOfPatches -1))
                                 {
                                     msDataState.dumpState = SysExDumpState::Idle;
                                     msDataState.patchInRequest = -1;
@@ -285,15 +283,21 @@ void MSSwitcherThread::run()
                                                     &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)),
                                                     &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)) + PatchCommonLength);
 
-                                    unsigned int id = (msMapIter->first.clientId() << 8) | msMapIter->first.portId();
                                     const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram + PatchName)));
                                     QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
-                                    emit patchNameChanged(id, QString(nameArr));
+
+                                    emit currentPatchChanged(id, QString(nameArr), false);
                                 }
                                 else
                                 {
+                                    const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(msMapIter->second.data.cbegin()+PatchTotalLength*msDataState.patchInRequest + PatchName)));
+                                    QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
+
                                     msDataState.dumpState = SysExDumpState::ExpectingStart;
+                                    msDataState.patchInRequest++;
+                                    msleep(70);
                                     requestPatch(msDataState.patchInRequest, thisOutPort, currentID);
+                                    emit currentPatchChanged(id, QString(nameArr), true);
                                 }
                             }
                         }
@@ -347,7 +351,7 @@ void MSSwitcherThread::run()
                     unsigned int id = (it.first.clientId() << 8) | it.first.portId();
                     const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(it.second.data.cbegin()+PatchTotalLength*currentProgram + PatchName)));
                     QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
-                    emit patchNameChanged(id, QString(nameArr));
+                    emit currentPatchChanged(id, QString(nameArr), false);
                 }
             }
         }

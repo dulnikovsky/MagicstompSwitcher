@@ -8,7 +8,7 @@ QVariant CurrentPatchesModel::data(const QModelIndex &index, int role) const
 {
     if( role == Qt::DisplayRole)
     {
-        return nameList.at(index.row());
+        return msMap.value(index.internalId()).curPatchName;
     }
     else if( role == Qt::FontRole )
     {
@@ -18,56 +18,57 @@ QVariant CurrentPatchesModel::data(const QModelIndex &index, int role) const
     }
     else if( role == Qt::ForegroundRole )
     {
-        if(nameList.at(index.row()).startsWith("..."))
+        if(msMap.value(index.internalId()).is_Requesting)
             return QColor(Qt::red);
     }
     return QVariant();
 }
 
-void CurrentPatchesModel::onCurrentPatchChanged(unsigned int msId, const QString &name)
+QModelIndex CurrentPatchesModel::index(int row, int column, const QModelIndex &) const
 {
-    int pos = idList.indexOf(msId);
-    if( pos < 0)
+    auto iter = msMap.constBegin();
+    if(iter == msMap.constEnd())
+        return QModelIndex();
+
+    int rowcounter = 0;
+    while( rowcounter < row && iter != msMap.constEnd())
     {
-        beginInsertRows(QModelIndex(), idList.size(), idList.size());
-        idList.append(msId);
-        nameList.append(name);
-        endInsertRows();
+        rowcounter++;
+        iter++;
+    }
+
+    return createIndex(row, column, iter.key());
+}
+
+void CurrentPatchesModel::onCurrentPatchChanged(unsigned int msId, const QString &name, bool isRequesting)
+{
+    struct MSData msdata;
+    msdata.curPatchName = name;
+    msdata.is_Requesting = isRequesting;
+    if( ! msMap.contains(msId))
+    {
+        beginResetModel();
+        msMap.insert(msId, msdata);
+        endResetModel();
     }
     else
     {
-       nameList[pos] = name;
-       emit dataChanged( createIndex(pos, 0), createIndex(pos, 0));
+       auto iter = msMap.insert(msId, msdata);
+       int rowcounter = 0;
+       auto iterSearch = msMap.begin();
+       while( iterSearch != iter && iterSearch != msMap.end())
+       {
+           rowcounter++;
+           iterSearch++;
+       }
+       emit dataChanged( index(rowcounter, 0, QModelIndex()), index(rowcounter, 0, QModelIndex()));
     }
 }
 
-void CurrentPatchesModel::onPatchRequested(unsigned int msId, int patchIdx)
-{
-    QString txt = "...Loading " + QString::number(patchIdx+1);
-
-    int pos = idList.indexOf(msId);
-    if( pos < 0)
-    {
-        beginInsertRows(QModelIndex(), idList.size(), idList.size());
-        idList.append(msId);
-        nameList.append(txt);
-        endInsertRows();
-    }
-    else
-    {
-       nameList[pos] = txt;
-       emit dataChanged( createIndex(pos, 0), createIndex(pos, 0));
-    }
-}
 
 void CurrentPatchesModel::onMSRemoved(unsigned int msId)
 {
-    int pos = idList.indexOf(msId);
-    if( pos >= 0)
-    {
-        beginRemoveRows(QModelIndex(), pos, pos);
-        idList.removeAt(pos);
-        nameList.removeAt(pos);
-        endRemoveRows();
-    }
+    beginResetModel();
+    msMap.remove(msId);
+    endResetModel();
 }

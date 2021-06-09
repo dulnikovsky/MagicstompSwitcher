@@ -36,8 +36,7 @@ public:
 public slots:
     void setCurrentProgram(unsigned char val);
 
-    void onPatchNameChanged(unsigned int id, const QString &name);
-    void onPatchRequested(unsigned int id, int patchIdx);
+    void onCurrentPatchChanged(unsigned int id, const QString &name, bool isRequesting);
 
     void onMsDisconnected(unsigned int id);
 

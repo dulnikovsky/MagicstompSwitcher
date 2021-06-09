@@ -75,14 +75,9 @@ void MainWidget::setCurrentProgram(unsigned char val)
     programNumberLabel->setText(strVal + QString::number(val+1));
 }
 
-void MainWidget::onPatchNameChanged(unsigned int id, const QString &name)
+void MainWidget::onCurrentPatchChanged(unsigned int id, const QString &name, bool isRequesting)
 {
-    cpModel->onCurrentPatchChanged(id, name);
-}
-
-void MainWidget::onPatchRequested(unsigned int id, int patchIdx)
-{
-    cpModel->onPatchRequested(id, patchIdx);
+    cpModel->onCurrentPatchChanged(id, name, isRequesting);
 }
 
 void MainWidget::onMsDisconnected(unsigned int id)
