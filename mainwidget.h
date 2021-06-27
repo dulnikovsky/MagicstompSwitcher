@@ -31,7 +31,7 @@ class MainWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit MainWidget(QWidget *parent = nullptr);
+    explicit MainWidget(unsigned int &midiChannel, QWidget *parent = nullptr);
 
 public slots:
     void setCurrentProgram(unsigned char val);
@@ -40,9 +40,17 @@ public slots:
 
     void onMsDisconnected(unsigned int id);
 
+signals:
+    void midiChannelChanged(unsigned int channel);
+
+private slots:
+    void showPreferencesDialog();
+
 private:
     CurrentPatchesModel *cpModel;
     QLabel *programNumberLabel;
+
+    unsigned int &midiChannel;
 };
 
 #endif // MAINWIDGET_H

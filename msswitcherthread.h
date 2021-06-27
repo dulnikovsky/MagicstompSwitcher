@@ -44,6 +44,10 @@ public:
     ~MSSwitcherThread();
 
 public slots:
+    void setMidiChannel(unsigned int val) { midiChannel=val;}
+
+public:
+    unsigned int MidiChannel() const { return midiChannel;}
 
 signals:
     void programChanged(unsigned char val);
@@ -56,6 +60,8 @@ private:
     snd_seq_t *handle;
     MidiClientPortId thisInPort;
     MidiClientPortId thisOutPort;
+
+    unsigned int midiChannel{0};
 
     struct MSDataState
     {

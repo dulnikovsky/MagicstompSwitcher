@@ -22,7 +22,7 @@
 
 #include "mainwidget.h"
 #include <QPalette>
-#include <QLabel>
+#include "doubleclickablelabel.h"
 #include <QFont>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -31,8 +31,10 @@
 
 #include "currentpatchesmodel.h"
 
-MainWidget::MainWidget(QWidget *parent)
-    :QWidget(parent)
+#include "preferencesdialog.h"
+
+MainWidget::MainWidget(unsigned int &midiChannel, QWidget *parent)
+    :QWidget(parent), midiChannel(midiChannel)
 {
     cpModel = new CurrentPatchesModel(this);
 
@@ -47,7 +49,8 @@ MainWidget::MainWidget(QWidget *parent)
     fnt.setBold(true);
     programNumberLabel->setFont(fnt);
 
-    QLabel *title = new QLabel("MagicstompSwitcher");
+    DoubleClickableLabel *title = new DoubleClickableLabel("MagicstompSwitcher");
+    connect(title, SIGNAL(doubleClicked()), this, SLOT(showPreferencesDialog()));
     title->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     plt.setColor(QPalette::WindowText, QColor(112, 169, 255));
     title->setPalette(plt);
@@ -83,4 +86,17 @@ void MainWidget::onCurrentPatchChanged(unsigned int id, const QString &name, boo
 void MainWidget::onMsDisconnected(unsigned int id)
 {
     cpModel->onMSRemoved(id);
+}
+
+void MainWidget::showPreferencesDialog()
+{
+    PreferencesDialog dialog;
+    dialog.setMidiChannel(midiChannel);
+    dialog.setPalette(this->palette());
+
+    connect(&dialog, SIGNAL(midiChannelChanged(unsigned int)), this, SIGNAL(midiChannelChanged(unsigned int)));
+
+    dialog.exec();
+
+    midiChannel = dialog.MidiChannel();
 }

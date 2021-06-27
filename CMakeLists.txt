@@ -29,6 +29,10 @@ set(PROJECT_SOURCES
     mainwidget.cpp
     currentpatchesmodel.h
     currentpatchesmodel.cpp
+    doubleclickablelabel.h
+    doubleclickablelabel.cpp
+    preferencesdialog.h
+    preferencesdialog.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

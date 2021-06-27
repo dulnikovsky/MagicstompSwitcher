@@ -329,9 +329,7 @@ void MSSwitcherThread::run()
         }
         else if(ev->type==SND_SEQ_EVENT_PGMCHANGE)
         {
-            // TODO if( ev->data.raw8.d[0] & 0x0F == channel)
-
-            if(ev->data.raw8.d[8] < numOfPatches)
+            if( (midiChannel==0 || (ev->data.raw8.d[0] & 0x0F)+1 == midiChannel) && ev->data.raw8.d[8] < numOfPatches)
             {
                 currentProgram = ev->data.raw8.d[8];
                 emit programChanged(currentProgram);

@@ -3,11 +3,13 @@
 #include "mainwidget.h"
 #include "msswitcherthread.h"
 
+static unsigned int midiChannel{0};
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    MainWidget mw;
+    MainWidget mw(midiChannel);
 
     MSSwitcherThread mssThread;
 
@@ -17,6 +19,9 @@ int main(int argc, char *argv[])
 
 
     QObject::connect(&mssThread, SIGNAL(msDisconnected(unsigned int)), &mw, SLOT(onMsDisconnected(unsigned int)));
+
+
+    QObject::connect(&mw, SIGNAL(midiChannelChanged(unsigned int)), &mssThread, SLOT(setMidiChannel(unsigned int)));
 
     mssThread.start();
 
