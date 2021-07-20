@@ -4,7 +4,9 @@ After=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/MagicstompSwitcher -platform linuxfb:fb=/dev/fb1
+EnvironmentFile=/etc/environment
+Environment="QT_QPA_FB_NO_LIBINPUT=1"
+ExecStart=/usr/local/bin/MagicstompSwitcher -platform linuxfb:fb=/dev/fb1 -plugin tslib
 KillMode=process
 User=pi
 Group=pi
