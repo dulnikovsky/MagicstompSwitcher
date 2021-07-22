@@ -29,8 +29,8 @@ set(PROJECT_SOURCES
     mainwidget.cpp
     currentpatchesmodel.h
     currentpatchesmodel.cpp
-    doubleclickablelabel.h
-    doubleclickablelabel.cpp
+    delayclickablelabel.h
+    delayclickablelabel.cpp
     preferencesdialog.h
     preferencesdialog.cpp
 )

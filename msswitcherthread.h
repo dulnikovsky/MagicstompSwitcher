@@ -45,9 +45,15 @@ public:
 
 public slots:
     void setMidiChannel(unsigned int val) { midiChannel=val;}
+    void setGainCCNumber(int val) { gainCCNumber=val;}
+    void setMasterCCNumber(int val) { masterCCNumber=val;}
+    void setEffectCCNumber(int val) { effectLevelCCNumber=val;}
 
 public:
     unsigned int MidiChannel() const { return midiChannel;}
+    int GainCCNumber() const { return gainCCNumber; }
+    int MasterCCNumber() const { return masterCCNumber; }
+    int EffectCCNumber() const { return effectLevelCCNumber; }
 
 signals:
     void programChanged(unsigned char val);
@@ -62,6 +68,9 @@ private:
     MidiClientPortId thisOutPort;
 
     unsigned int midiChannel{0};
+    int gainCCNumber{-1};
+    int masterCCNumber{-1};
+    int effectLevelCCNumber{-1};
 
     struct MSDataState
     {
@@ -76,6 +85,8 @@ private:
 
     int sendPatchToTemp(unsigned char index, const MidiClientPortId &srcPort, const MidiClientPortId &destPort,
                         const unsigned char *patchCommonData, const unsigned char *patchEffectData);
+
+    void sendTempEffectParameter(const MidiClientPortId &srcPort, const MidiClientPortId &destPort, unsigned char offset, const std::vector<unsigned char> &data);
 
     void scan();
 

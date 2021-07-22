@@ -26,12 +26,13 @@
 
 class QLabel;
 class CurrentPatchesModel;
+class PreferencesDialog;
 
 class MainWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit MainWidget(unsigned int &midiChannel, QWidget *parent = nullptr);
+    explicit MainWidget(QWidget *parent = nullptr);
 
 public slots:
     void setCurrentProgram(unsigned char val);
@@ -42,6 +43,9 @@ public slots:
 
 signals:
     void midiChannelChanged(unsigned int channel);
+    void gainCCNumberChanged(int num);
+    void masterCCNumberChanged(int num);
+    void effectLevelCCNumberChanged(int num);
 
 private slots:
     void showPreferencesDialog();
@@ -49,8 +53,7 @@ private slots:
 private:
     CurrentPatchesModel *cpModel;
     QLabel *programNumberLabel;
-
-    unsigned int &midiChannel;
+    PreferencesDialog *prefDialog{nullptr};
 };
 
 #endif // MAINWIDGET_H

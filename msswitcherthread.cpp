@@ -167,6 +167,36 @@ int MSSwitcherThread::sendPatchToTemp(unsigned char index, const MidiClientPortI
     return ret;
 }
 
+
+void MSSwitcherThread::sendTempEffectParameter(const MidiClientPortId &srcPort, const MidiClientPortId &destPort, unsigned char offset, const std::vector<unsigned char> &data)
+{
+    static const int parameterSendHeaderLength = 6;
+    static const unsigned char sysExParameterSendHeader[parameterSendHeaderLength] = { 0xF0, 0x43, 0x7D, 0x40, 0x55, 0x42 };
+
+    vector<unsigned char> eventdataVector;
+    snd_seq_event_t sendev;
+
+    eventdataVector.insert(eventdataVector.end(), sysExParameterSendHeader, sysExParameterSendHeader + parameterSendHeaderLength);
+    eventdataVector.push_back(0x20);
+    {
+        eventdataVector.push_back(0x01);
+        eventdataVector.push_back(offset);
+    }
+    for(unsigned int i= 0; i< data.size(); i++)
+    {
+        eventdataVector.push_back( data.at(i));
+    }
+    eventdataVector.push_back(0xF7);
+
+    snd_seq_ev_clear(&sendev);
+    snd_seq_ev_set_source(&sendev, srcPort.portId());
+    snd_seq_ev_set_dest(&sendev, destPort.clientId(), destPort.portId());
+    snd_seq_ev_set_direct(&sendev);
+    snd_seq_ev_set_variable(&sendev, eventdataVector.size(), (void *) &(*eventdataVector.cbegin()));
+    sendev.type=SND_SEQ_EVENT_SYSEX;
+    snd_seq_event_output(handle, &sendev);
+    snd_seq_drain_output(handle);
+}
 void MSSwitcherThread::scan()
 {
     snd_seq_client_info_t *cinfo;
@@ -350,6 +380,28 @@ void MSSwitcherThread::run()
                     const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(it.second.data.cbegin()+PatchTotalLength*currentProgram + PatchName)));
                     QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
                     emit currentPatchChanged(id, QString(nameArr), false);
+                }
+            }
+        }
+        else if(ev->type==SND_SEQ_EVENT_CONTROLLER)
+        {
+            if( (midiChannel==0 || (ev->data.raw8.d[0] & 0x0F)+1 == midiChannel))
+            {
+                unsigned int ccnumber = ev->data.control.param;
+                if((int)ccnumber == gainCCNumber)
+                {
+                    for (auto& it: msMap)
+                    {
+                        if(it.second.dumpState == SysExDumpState::Idle)
+                        {
+                            std::vector<unsigned char> newValVec;
+                            if(it.second.data.at(PatchTotalLength*currentProgram + EffectType +1) == AmpSimulator) //+1 because only second byte of 2 byte parameter is used
+                            {
+                                newValVec.push_back(ev->data.control.value);
+                                sendTempEffectParameter(thisOutPort, it.first, AmpGainOffset, newValVec);
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -22,19 +22,20 @@
 
 #include "mainwidget.h"
 #include <QPalette>
-#include "doubleclickablelabel.h"
+#include "delayclickablelabel.h"
 #include <QFont>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QListView>
 #include <QDebug>
+#include <QApplication>
 
 #include "currentpatchesmodel.h"
 
 #include "preferencesdialog.h"
 
-MainWidget::MainWidget(unsigned int &midiChannel, QWidget *parent)
-    :QWidget(parent), midiChannel(midiChannel)
+MainWidget::MainWidget(QWidget *parent)
+    :QWidget(parent)
 {
     cpModel = new CurrentPatchesModel(this);
 
@@ -49,8 +50,8 @@ MainWidget::MainWidget(unsigned int &midiChannel, QWidget *parent)
     fnt.setBold(true);
     programNumberLabel->setFont(fnt);
 
-    DoubleClickableLabel *title = new DoubleClickableLabel("MagicstompSwitcher");
-    connect(title, SIGNAL(doubleClicked()), this, SLOT(showPreferencesDialog()));
+    DelayClickableLabel *title = new DelayClickableLabel(qAppName() + QStringLiteral(" ") + qApp->applicationVersion());
+    connect(title, SIGNAL(clicked()), this, SLOT(showPreferencesDialog()));
     title->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     plt.setColor(QPalette::WindowText, QColor(112, 169, 255));
     title->setPalette(plt);
@@ -90,13 +91,25 @@ void MainWidget::onMsDisconnected(unsigned int id)
 
 void MainWidget::showPreferencesDialog()
 {
-    PreferencesDialog dialog;
-    dialog.setMidiChannel(midiChannel);
-    dialog.setPalette(this->palette());
+    if(prefDialog == nullptr)
+    {
+        prefDialog = new PreferencesDialog();
+    }
 
-    connect(&dialog, SIGNAL(midiChannelChanged(unsigned int)), this, SIGNAL(midiChannelChanged(unsigned int)));
+    prefDialog->setPalette(this->palette());
 
-    dialog.exec();
+    connect(prefDialog, SIGNAL(midiChannelChanged(unsigned int)), this, SIGNAL(midiChannelChanged(unsigned int)));
+    connect(prefDialog, SIGNAL(gainCCNumberChanged(int)), this, SIGNAL(gainCCNumberChanged(int)));
+    connect(prefDialog, SIGNAL(masterCCNumberChanged(int)), this, SIGNAL(masterCCNumberChanged(int)));
+    connect(prefDialog, SIGNAL(effectLevelCCNumberChanged(int)), this, SIGNAL(effectLevelCCNumberChanged(int)));
 
-    midiChannel = dialog.MidiChannel();
+    if(qApp->platformName() == QStringLiteral("linuxfb"))
+    {
+        prefDialog->showFullScreen();
+    }
+    else
+    {
+        prefDialog->resize(480, 320);
+        prefDialog->show();
+    }
 }
