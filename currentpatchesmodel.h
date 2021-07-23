@@ -38,6 +38,8 @@ public:
     QModelIndex index(int row, int column, const QModelIndex &) const override;
     QModelIndex parent(const QModelIndex &) const override { return QModelIndex();}
 
+    Qt::ItemFlags flags(const QModelIndex &index) const override;
+
 public slots:
     void onCurrentPatchChanged(unsigned int msId, const QString &name, bool isRequesting);
     void onMSRemoved(unsigned int msId);

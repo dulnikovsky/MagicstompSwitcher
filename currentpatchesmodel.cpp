@@ -72,3 +72,8 @@ void CurrentPatchesModel::onMSRemoved(unsigned int msId)
     msMap.remove(msId);
     endResetModel();
 }
+
+Qt::ItemFlags CurrentPatchesModel::flags(const QModelIndex &) const
+{
+    return Qt::NoItemFlags;
+}

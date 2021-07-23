@@ -45,6 +45,8 @@ MSSwitcherThread::MSSwitcherThread(QObject *parent)
     thisOutPort = MidiClientPortId(snd_seq_client_id(handle), outPort);
 
     subscribePort(handle, MidiClientPortId(SND_SEQ_CLIENT_SYSTEM, SND_SEQ_PORT_SYSTEM_ANNOUNCE), thisInPort);
+
+    elTimer.start();
 }
 
 MSSwitcherThread::~MSSwitcherThread()
@@ -240,7 +242,6 @@ void MSSwitcherThread::scan()
 
 void MSSwitcherThread::run()
 {
-    unsigned char currentProgram = 0;
     emit programChanged(currentProgram);
     snd_seq_event_t *ev;
 
@@ -390,17 +391,23 @@ void MSSwitcherThread::run()
                 unsigned int ccnumber = ev->data.control.param;
                 if((int)ccnumber == gainCCNumber)
                 {
-                    for (auto& it: msMap)
+                    for (auto &it: msMap)
                     {
-                        if(it.second.dumpState == SysExDumpState::Idle)
-                        {
-                            std::vector<unsigned char> newValVec;
-                            if(it.second.data.at(PatchTotalLength*currentProgram + EffectType +1) == AmpSimulator) //+1 because only second byte of 2 byte parameter is used
-                            {
-                                newValVec.push_back(ev->data.control.value);
-                                sendTempEffectParameter(thisOutPort, it.first, AmpGainOffset, newValVec);
-                            }
-                        }
+                       handleGuitarBassEffectControlChange(it, ev->data.control.value, AmpGainOffset, BassPreampGainOffset);
+                    }
+                }
+                else if((int)ccnumber == masterCCNumber)
+                {
+                    for (auto &it: msMap)
+                    {
+                       handleGuitarBassEffectControlChange(it, ev->data.control.value, AmpMasterOffset, BassPreampMasterOffset);
+                    }
+                }
+                else if((int)ccnumber == effectLevelCCNumber)
+                {
+                    for (auto &it: msMap)
+                    {
+                       handle8BandDelayControlChange(it, ev->data.control.value);
                     }
                 }
             }
@@ -482,4 +489,84 @@ unsigned char MSSwitcherThread::calcChecksum(const unsigned char *data, int data
         checkSum += *data++;
     }
     return ((-checkSum) & 0x7f);
+}
+
+void MSSwitcherThread::handleGuitarBassEffectControlChange(std::pair<const MidiClientPortId, MSDataState> &ms, int ccValue, int guitarOffset, int bassOffset)
+{
+    if(ms.second.dumpState != SysExDumpState::Idle)
+        return;
+
+    std::vector<unsigned char> newValVec;
+    int currentEffectType = ms.second.data.at(PatchTotalLength*currentProgram + EffectType +1);//+1 because only second byte of 2 byte parameter is used
+    if( currentEffectType == AmpSimulator || currentEffectType == AmpMultiChorus ||
+            currentEffectType == AmpMultiFlange || currentEffectType == AmpMultiTremolo ||
+            currentEffectType == AmpMultiPhaser)
+    {
+        bool canSend = checkCCIntencity(ms.second);
+        if(canSend)
+        {
+            unsigned char maxcurrentVal = ms.second.data.at(PatchTotalLength*currentProgram + PatchCommonLength +guitarOffset);
+            newValVec.push_back((ccValue * maxcurrentVal)/ 127);
+            sendTempEffectParameter(thisOutPort, ms.first, guitarOffset, newValVec);
+        }
+    }
+    else if(currentEffectType == BassPreamp)
+    {
+        bool canSend = checkCCIntencity(ms.second);
+        if(canSend)
+        {
+            unsigned char maxcurrentVal= ms.second.data.at(PatchTotalLength*currentProgram + PatchCommonLength +bassOffset +1); // Two byte val, forst byte unused and always 0
+            newValVec.push_back(0);
+            newValVec.push_back((ccValue * maxcurrentVal)/ 127);
+            sendTempEffectParameter(thisOutPort, ms.first, bassOffset, newValVec);
+        }
+    }
+}
+
+void MSSwitcherThread::handle8BandDelayControlChange(std::pair<const MidiClientPortId, MSDataState> &ms, int ccValue)
+{
+    if(ms.second.dumpState != SysExDumpState::Idle)
+        return;
+
+    std::vector<unsigned char> newValVec;
+    int currentEffectType = ms.second.data.at(PatchTotalLength*currentProgram + EffectType +1);//+1 because only second byte of 2 byte parameter is used
+    if( currentEffectType >= EightBandParallelDelay && currentEffectType <= ShortMediumLongModDelay)
+    {
+        bool canSend = checkCCIntencity(ms.second);
+        if(canSend)
+        {
+            unsigned char maxcurrentVal = ms.second.data.at(PatchTotalLength*currentProgram + PatchCommonLength +EightBandDlyEffectLevelOffset+1);
+            newValVec.push_back(0);
+            newValVec.push_back((ccValue * maxcurrentVal)/ 127);
+            sendTempEffectParameter(thisOutPort, ms.first, EightBandDlyEffectLevelOffset, newValVec);
+        }
+    }
+}
+
+bool MSSwitcherThread::checkCCIntencity(MSDataState &msstate)
+{
+    quint64 timerElapsed = elTimer.elapsed();
+    quint64 ccDeltaTime = elTimer.elapsed() - msstate.lastCCtimestamp;
+    msstate.lastCCtimestamp = timerElapsed;
+
+    if(ccDeltaTime < 4)
+        msstate.ccIntensity++;
+    else
+    {
+        msstate.ccIntensity = msstate.ccIntensity - ccDeltaTime;
+        if(msstate.ccIntensity < 0)
+            msstate.ccIntensity = 0;
+    }
+
+    qDebug("CC event delta =%lld, current intensity=%d", ccDeltaTime, msstate.ccIntensity);
+
+    if(msstate.ccIntensity < 40) // Magic number after tests
+    {
+        return true;
+    }
+    else
+    {
+       msstate.ccIntensity -= 1;
+       return false;
+    }
 }

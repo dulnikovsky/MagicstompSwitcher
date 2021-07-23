@@ -97,7 +97,12 @@ enum class SysExDumpState
 
 enum EffectParemeterOffsets
 {
-    AmpGainOffset = 0x1E
+    BassPreampGainOffset = 0x10, //Two bytes
+    BassPreampMasterOffset = 0x12, //Two bytes
+    AmpGainOffset = 0x1E,
+    AmpMasterOffset = 0x1F,
+
+    EightBandDlyEffectLevelOffset = 0x10, //Two bytes
 };
 
 #endif

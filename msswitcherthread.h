@@ -24,6 +24,7 @@
 #define MSSWITCHERTHREAD_H
 
 #include <QThread>
+#include <QElapsedTimer>
 
 #include <iostream>
 #include <array>
@@ -67,6 +68,8 @@ private:
     MidiClientPortId thisInPort;
     MidiClientPortId thisOutPort;
 
+    unsigned char currentProgram{0};
+
     unsigned int midiChannel{0};
     int gainCCNumber{-1};
     int masterCCNumber{-1};
@@ -77,6 +80,8 @@ private:
         int patchInRequest{-1};
         SysExDumpState dumpState{SysExDumpState::Idle};
         std::vector<unsigned char> data;
+        quint64 lastCCtimestamp{0};
+        qint32 ccIntensity{0};
     };
 
     std::map<MidiClientPortId, MSDataState> msMap;
@@ -92,6 +97,13 @@ private:
 
     static bool isMagicstomp(const char *clientName, const char *portName);
     static unsigned char calcChecksum(const unsigned char *data, int dataLength);
+
+    void handleGuitarBassEffectControlChange(std::pair<const MidiClientPortId, MSDataState> &ms, int ccValue, int guitarOffset, int bassOffset);
+
+    void handle8BandDelayControlChange(std::pair<const MidiClientPortId, MSDataState> &ms, int ccValue);
+
+    QElapsedTimer elTimer;
+    bool checkCCIntencity(MSDataState &msstate);
 };
 
 #endif // MSSWITCHERTHREAD_H
