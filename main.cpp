@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
     QObject::connect(&mw, SIGNAL(gainCCNumberChanged(int)), &mssThread, SLOT(setGainCCNumber(int)));
     QObject::connect(&mw, SIGNAL(masterCCNumberChanged(int)), &mssThread, SLOT(setMasterCCNumber(int)));
     QObject::connect(&mw, SIGNAL(effectLevelCCNumberChanged(int)), &mssThread, SLOT(setEffectCCNumber(int)));
+    QObject::connect(&mw, SIGNAL(midiThroughChanged(bool)), &mssThread, SLOT(setMidiThrough(bool)));
 
     mssThread.start();
 

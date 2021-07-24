@@ -46,6 +46,7 @@ signals:
     void gainCCNumberChanged(int num);
     void masterCCNumberChanged(int num);
     void effectLevelCCNumberChanged(int num);
+    void midiThroughChanged(bool);
 
 private slots:
     void showPreferencesDialog();

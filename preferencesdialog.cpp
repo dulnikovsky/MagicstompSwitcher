@@ -7,6 +7,7 @@
 #include <QPlainTextEdit>
 #include <QSpinBox>
 #include <QPushButton>
+#include <QCheckBox>
 
 #include "msswitcherthread.h"
 
@@ -42,11 +43,17 @@ PreferencesDialog::PreferencesDialog(QWidget *parent) : QWidget(parent)
     effectLevelCCNUmberSpinBox->setValue(switcherThread->EffectCCNumber());
     connect(effectLevelCCNUmberSpinBox, SIGNAL(valueChanged(int)),this, SIGNAL(effectLevelCCNumberChanged(int)));
 
+    QCheckBox *midiThroughCheckBox = new QCheckBox();
+    midiThroughCheckBox->setCheckable(true);
+    midiThroughCheckBox->setChecked(switcherThread->MidiThrough());
+    connect(midiThroughCheckBox, SIGNAL(toggled(bool)),this, SIGNAL(midiThroughChanged(bool)));
+
     QFormLayout *formLyt = new QFormLayout();
     formLyt->addRow(new QLabel(QStringLiteral("MIDI Channel :")), channelSpinBox);
     formLyt->addRow(new QLabel(QStringLiteral("Gain CC Number :")), gainCCNUmberSpinBox);
     formLyt->addRow(new QLabel(QStringLiteral("Master CC Number :")), masterCCNUmberSpinBox);
     formLyt->addRow(new QLabel(QStringLiteral("8 Band Delay Effect Level CC Number :")), effectLevelCCNUmberSpinBox);
+    formLyt->addRow(new QLabel(QStringLiteral("MIDI Through :")), midiThroughCheckBox);
 
     /*aconnectDisplay = new QPlainTextEdit();
     aconnectDisplay->setReadOnly(true);

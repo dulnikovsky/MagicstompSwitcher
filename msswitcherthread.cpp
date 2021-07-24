@@ -217,25 +217,31 @@ void MSSwitcherThread::scan()
         snd_seq_port_info_set_port(pinfo, -1);
         while (snd_seq_query_next_port(handle, pinfo) >= 0)
         {
-            MidiClientPortId mcpid(clientId, snd_seq_port_info_get_port(pinfo));
+            MidiClientPortId cpid(clientId, snd_seq_port_info_get_port(pinfo));
             unsigned int cap = snd_seq_port_info_get_capability(pinfo);
 
             if( isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
             {
-                msMap.insert( {mcpid, MSDataState()} );
-                subscribePort(handle, thisOutPort, mcpid);
+                msMap.insert( {cpid, MSDataState()} );
+                subscribePort(handle, thisOutPort, cpid);
 
-                cout << "Magicstomp found[" << static_cast<unsigned int>(mcpid.clientId())
-                     << "," << static_cast<unsigned int>(mcpid.portId()) << "]" << endl;
+                cout << "Magicstomp found[" << static_cast<unsigned int>(cpid.clientId())
+                     << "," << static_cast<unsigned int>(cpid.portId()) << "]" << endl;
             }
             else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
                     cap & (SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ))
             {
-                subscribePort( handle, mcpid, thisInPort);
-                cout << "Hardware MIDI IN device found[" << static_cast<unsigned int>(mcpid.clientId())
-                     << "," << static_cast<unsigned int>(mcpid.portId()) << "]" << endl;
+                subscribePort( handle, cpid, thisInPort);
+                cout << "Hardware MIDI IN device found[" << static_cast<unsigned int>(cpid.clientId())
+                     << "," << static_cast<unsigned int>(cpid.portId()) << "]" << endl;
+                if(midiThrough)
+                {
+                    subscribePort( handle, cpid, MidiClientPortId(14,0));
+                    if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
+                                        cap & (SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE))
+                        subscribePort( handle, MidiClientPortId(14,0), cpid);
+                }
             }
-
         }
     }
 }
@@ -423,19 +429,19 @@ void MSSwitcherThread::run()
             snd_seq_get_any_client_info(handle, ev->data.addr.client, cinfo);
             snd_seq_get_any_port_info(handle, ev->data.addr.client, ev->data.addr.port, pinfo);
             unsigned int cap = snd_seq_port_info_get_capability(pinfo);
-            MidiClientPortId mscpid(ev->data.addr.client, ev->data.addr.port);
+            MidiClientPortId cpid(ev->data.addr.client, ev->data.addr.port);
 
             if(isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
             {
-                auto findIter = msMap.find(mscpid);
+                auto findIter = msMap.find(cpid);
                 if(findIter == msMap.end())
                 {
-                    sysExBufferMap.insert({mscpid, vector<unsigned char>()});
+                    sysExBufferMap.insert({cpid, vector<unsigned char>()});
 
-                    subscribePort(handle, thisOutPort, mscpid);
-                    subscribePort(handle, mscpid, thisInPort);
+                    subscribePort(handle, thisOutPort, cpid);
+                    subscribePort(handle, cpid, thisInPort);
                     pair<map<MidiClientPortId, MSDataState>::iterator,bool> ret;
-                    ret = msMap.insert({mscpid, MSDataState()} );
+                    ret = msMap.insert({cpid, MSDataState()} );
                     ret.first->second.dumpState = SysExDumpState::ExpectingStart;
                     this_thread::sleep_for(std::chrono::milliseconds(1000)); // Wait 1s until MS gets ready after power on
                     requestPatch(++(ret.first->second.patchInRequest), thisOutPort, ret.first->first);
@@ -447,9 +453,17 @@ void MSSwitcherThread::run()
             else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
                     cap & (SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ))
             {
-                subscribePort( handle, mscpid, thisInPort);
+                subscribePort( handle, cpid, thisInPort);
                 cout << "Hardware MIDI IN device connected[" << static_cast<unsigned int>(ev->data.addr.client)
                      << ":" << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
+
+                if(midiThrough)
+                {
+                    subscribePort( handle, cpid, MidiClientPortId(14,0));
+                    if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
+                                        cap & (SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE))
+                        subscribePort( handle, MidiClientPortId(14,0), cpid);
+                }
             }
         }
         else if(ev->type==SND_SEQ_EVENT_PORT_EXIT)
@@ -470,7 +484,6 @@ void MSSwitcherThread::run()
         //cout << "MIDI Event. Type = " << static_cast<int>(ev->type) << " Patch idx=" << patchInRequest << endl;
         snd_seq_free_event(ev);
     }
-
 }
 
 bool MSSwitcherThread::isMagicstomp(const char *clientName, const char *portName)
@@ -568,5 +581,51 @@ bool MSSwitcherThread::checkCCIntencity(MSDataState &msstate)
     {
        msstate.ccIntensity -= 1;
        return false;
+    }
+}
+
+void MSSwitcherThread::setMidiThrough(bool val)
+{
+    snd_seq_client_info_t *cinfo;
+    snd_seq_port_info_t *pinfo;
+
+    snd_seq_client_info_alloca(&cinfo);
+    snd_seq_port_info_alloca(&pinfo);
+    snd_seq_client_info_set_client(cinfo, -1);
+    while (snd_seq_query_next_client(handle, cinfo) >= 0)
+    {
+        int clientId = snd_seq_client_info_get_client(cinfo);
+        if( (clientId == SND_SEQ_CLIENT_SYSTEM) || (clientId == snd_seq_client_id(handle)))
+            continue;
+
+        snd_seq_port_info_set_client(pinfo, clientId);
+        snd_seq_port_info_set_port(pinfo, -1);
+        while (snd_seq_query_next_port(handle, pinfo) >= 0)
+        {
+            MidiClientPortId cpid(clientId, snd_seq_port_info_get_port(pinfo));
+            unsigned int cap = snd_seq_port_info_get_capability(pinfo);
+
+            if(isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
+                continue;
+
+            if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
+                    cap & (SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ))
+            {
+                if(val)
+                {
+                    subscribePort( handle, cpid, MidiClientPortId(14,0));
+                    if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
+                                        cap & (SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE))
+                        subscribePort( handle, MidiClientPortId(14,0), cpid);
+                }
+                else
+                {
+                    unSubscribePort( handle, cpid, MidiClientPortId(14,0));
+                    if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
+                                        cap & (SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE))
+                        unSubscribePort( handle, MidiClientPortId(14,0), cpid);
+                }
+            }
+        }
     }
 }

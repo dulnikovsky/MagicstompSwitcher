@@ -49,12 +49,14 @@ public slots:
     void setGainCCNumber(int val) { gainCCNumber=val;}
     void setMasterCCNumber(int val) { masterCCNumber=val;}
     void setEffectCCNumber(int val) { effectLevelCCNumber=val;}
+    void setMidiThrough(bool val);
 
 public:
     unsigned int MidiChannel() const { return midiChannel;}
     int GainCCNumber() const { return gainCCNumber; }
     int MasterCCNumber() const { return masterCCNumber; }
     int EffectCCNumber() const { return effectLevelCCNumber; }
+    bool MidiThrough() const { return midiThrough;}
 
 signals:
     void programChanged(unsigned char val);
@@ -74,6 +76,7 @@ private:
     int gainCCNumber{-1};
     int masterCCNumber{-1};
     int effectLevelCCNumber{-1};
+    bool midiThrough{false};
 
     struct MSDataState
     {

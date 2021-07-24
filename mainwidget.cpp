@@ -102,6 +102,7 @@ void MainWidget::showPreferencesDialog()
     connect(prefDialog, SIGNAL(gainCCNumberChanged(int)), this, SIGNAL(gainCCNumberChanged(int)));
     connect(prefDialog, SIGNAL(masterCCNumberChanged(int)), this, SIGNAL(masterCCNumberChanged(int)));
     connect(prefDialog, SIGNAL(effectLevelCCNumberChanged(int)), this, SIGNAL(effectLevelCCNumberChanged(int)));
+    connect(prefDialog, SIGNAL(midiThroughChanged(bool)), this, SIGNAL(midiThroughChanged(bool)));
 
     if(qApp->platformName() == QStringLiteral("linuxfb"))
     {
