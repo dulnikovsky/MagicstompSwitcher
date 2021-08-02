@@ -33,6 +33,8 @@ set(PROJECT_SOURCES
     delayclickablelabel.cpp
     preferencesdialog.h
     preferencesdialog.cpp
+    msswitchersettings.h
+    msswitchersettings.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

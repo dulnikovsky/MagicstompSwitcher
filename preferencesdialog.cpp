@@ -1,7 +1,7 @@
 #include "preferencesdialog.h"
 
 #include <QFormLayout>
-#include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QLabel>
 #include <QProcess>
 #include <QPlainTextEdit>
@@ -64,9 +64,10 @@ PreferencesDialog::PreferencesDialog(QWidget *parent) : QWidget(parent)
     QPushButton *closeButton = new QPushButton(tr("Close"));
     connect(closeButton, SIGNAL(pressed()), this, SLOT(close()));
 
-    QHBoxLayout *mainLyt = new QHBoxLayout();
+    QVBoxLayout *mainLyt = new QVBoxLayout();
     mainLyt->addLayout(formLyt);
     //mainLyt->addWidget(aconnectDisplay);
+    mainLyt->addSpacing(4);
     mainLyt->addWidget(closeButton);
 
     setLayout(mainLyt);

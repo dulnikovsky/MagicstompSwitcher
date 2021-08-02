@@ -628,4 +628,5 @@ void MSSwitcherThread::setMidiThrough(bool val)
             }
         }
     }
+    midiThrough = val;
 }
