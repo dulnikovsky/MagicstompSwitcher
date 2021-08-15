@@ -2,14 +2,18 @@
 
 #include <QFormLayout>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QProcess>
 #include <QPlainTextEdit>
 #include <QSpinBox>
 #include <QPushButton>
 #include <QCheckBox>
+#include <QApplication>
 
 #include "msswitcherthread.h"
+
+#include "aconnectwidget.h"
 
 extern const MSSwitcherThread *switcherThread;
 
@@ -55,44 +59,25 @@ PreferencesDialog::PreferencesDialog(QWidget *parent) : QWidget(parent)
     formLyt->addRow(new QLabel(QStringLiteral("8 Band Delay Effect Level CC Number :")), effectLevelCCNUmberSpinBox);
     formLyt->addRow(new QLabel(QStringLiteral("MIDI Through :")), midiThroughCheckBox);
 
-    /*aconnectDisplay = new QPlainTextEdit();
-    aconnectDisplay->setReadOnly(true);
-    QFont aconnectDisplayFont = aconnectDisplay->font();
-    aconnectDisplayFont.setPointSize(5);
-    aconnectDisplay->setFont(aconnectDisplayFont);*/
-
     QPushButton *closeButton = new QPushButton(tr("Close"));
     connect(closeButton, SIGNAL(pressed()), this, SLOT(close()));
 
+    QPushButton *showACennectButton = new QPushButton(tr("Show aconnect"));
+    connect(showACennectButton, SIGNAL(pressed()), this, SLOT(showAConnectWidget()));
+
     QVBoxLayout *mainLyt = new QVBoxLayout();
     mainLyt->addLayout(formLyt);
-    //mainLyt->addWidget(aconnectDisplay);
     mainLyt->addSpacing(4);
-    mainLyt->addWidget(closeButton);
+
+    QHBoxLayout *buttonLyt = new QHBoxLayout();
+    buttonLyt->addWidget(closeButton);
+    buttonLyt->addStretch(4);
+    buttonLyt->addWidget(showACennectButton);
+
+    mainLyt->addLayout(buttonLyt);
 
     setLayout(mainLyt);
-
-    //runAconnect();
-
 }
-
-/*void PreferencesDialog::runAconnect()
-{
-    QString program = "aconnect";
-    QStringList arguments;
-    arguments << "-l";
-
-    QProcess *myProcess = new QProcess(this);
-    QObject::connect(
-        myProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-        [myProcess, this](int exitCode) {
-            QByteArray output = myProcess->readAllStandardOutput();
-            this->aconnectDisplay->setPlainText(QString(output));
-            myProcess->deleteLater();
-        }
-    );
-    myProcess->start(program, arguments);
-}*/
 
 void PreferencesDialog::setMidiChannel(unsigned int channel)
 {
@@ -107,4 +92,23 @@ unsigned int PreferencesDialog::MidiChannel() const
 void PreferencesDialog::channelSpinBoxChanged(int val)
 {
     emit midiChannelChanged(val);
+}
+
+void PreferencesDialog::showAConnectWidget()
+{
+    if(aconnectWidget == nullptr)
+    {
+        aconnectWidget = new AConnectWidget();
+        aconnectWidget->setPalette(this->palette());
+    }
+
+    if(qApp->platformName() == QStringLiteral("linuxfb"))
+    {
+        aconnectWidget->showFullScreen();
+    }
+    else
+    {
+        aconnectWidget->resize(480, 320);
+        aconnectWidget->show();
+    }
 }

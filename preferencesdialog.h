@@ -26,11 +26,11 @@ private:
     QSpinBox *masterCCNUmberSpinBox;
     QSpinBox *effectLevelCCNUmberSpinBox;
 
-    //void runAconnect();
-    //QPlainTextEdit *aconnectDisplay;
+    QWidget *aconnectWidget{nullptr};
 
 private slots:
     void channelSpinBoxChanged(int val);
+    void showAConnectWidget();
 };
 
 #endif // PREFERENCESDIALOG_H

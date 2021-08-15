@@ -35,6 +35,8 @@ set(PROJECT_SOURCES
     preferencesdialog.cpp
     msswitchersettings.h
     msswitchersettings.cpp
+    aconnectwidget.h
+    aconnectwidget.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

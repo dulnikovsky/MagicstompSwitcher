@@ -94,9 +94,8 @@ void MainWidget::showPreferencesDialog()
     if(prefDialog == nullptr)
     {
         prefDialog = new PreferencesDialog();
+        prefDialog->setPalette(this->palette());
     }
-
-    prefDialog->setPalette(this->palette());
 
     connect(prefDialog, SIGNAL(midiChannelChanged(unsigned int)), this, SIGNAL(midiChannelChanged(unsigned int)));
     connect(prefDialog, SIGNAL(gainCCNumberChanged(int)), this, SIGNAL(gainCCNumberChanged(int)));
