@@ -81,6 +81,8 @@ int MSSwitcherThread::sendPatchToTemp(unsigned char index, const MidiClientPortI
                     const unsigned char *patchCommonData, const unsigned char *patchEffectData)
 {
     vector<unsigned char> dataVector;
+    dataVector.reserve(256);
+
     snd_seq_event_t sendev;
     int ret;
 
@@ -443,7 +445,7 @@ void MSSwitcherThread::run()
                     pair<map<MidiClientPortId, MSDataState>::iterator,bool> ret;
                     ret = msMap.insert({cpid, MSDataState()} );
                     ret.first->second.dumpState = SysExDumpState::ExpectingStart;
-                    this_thread::sleep_for(std::chrono::milliseconds(1000)); // Wait 1s until MS gets ready after power on
+                    msleep(1000); // Wait 1s until MS gets ready after power on
                     requestPatch(++(ret.first->second.patchInRequest), thisOutPort, ret.first->first);
 
                     cout << "Magicstomp connected[" << static_cast<unsigned int>(ev->data.addr.client)
