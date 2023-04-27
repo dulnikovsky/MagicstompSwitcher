@@ -2,7 +2,7 @@
 
 ## Introduction
 
-MagicstompSwitcher i an application for Linux which makes it possible to switch patches of Yamaha's Magicstomp using MIDI Program Change Messages sent from a MIDI foot controller or any other MIDI device. It will work on any Linux system with ALSA and Qt library installed on it. It will fulfill its purpose the best on a small Linux host like Raspberry PI which can be easily mounted on a pedalboard or rack.
+MagicstompSwitcher is an application for Linux which makes it possible to switch patches of Yamaha's Magicstomp using MIDI Program Change Messages sent from a MIDI foot controller or any other MIDI device. It will work on any Linux system with ALSA and Qt library installed on it. It will fulfill its purpose the best on a small Linux host like Raspberry PI which can be easily mounted on a pedalboard or rack.
 
 <img src="MSSwitcher.jpg"  width="492" height="460">
 
