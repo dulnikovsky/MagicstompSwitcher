@@ -2,7 +2,6 @@
 #ifndef ALSAFUNC_H
 #define ALSAFUNC_H
 
-
 #include <alsa/asoundlib.h>
 #include "midiportidalsa.h"
 

@@ -11,7 +11,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-SET(WITH_QT_GUI TRUE CACHE BOOL "Some user-specified option")
+SET(WITH_QT_GUI TRUE CACHE BOOL "Determinates build with or without Qt Widgets GUI")
+SET(WITH_SSD1306_DISPLAY TRUE CACHE BOOL "Determinates build with or without SSD 1306 OLED display support")
 
 if(${WITH_QT_GUI} STREQUAL ON)
     message("Building with Qt GUI")
@@ -22,6 +23,10 @@ else()
     message("Building without Qt GUI")
     find_package(QT NAMES Qt6 Qt5 COMPONENTS Core REQUIRED)
     find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core REQUIRED)
+endif()
+
+if(${WITH_SSD1306_DISPLAY} STREQUAL ON)
+    add_compile_definitions(WITH_SSD1306_DISPLAY)
 endif()
 
 set(PROJECT_SOURCES
@@ -52,6 +57,13 @@ if(${WITH_QT_GUI} STREQUAL ON)
     )
 endif()
 
+if(${WITH_SSD1306_DISPLAY} STREQUAL ON)
+    list (APPEND PROJECT_SOURCES
+        ssd1306_display.h
+        ssd1306_display.cpp
+    )
+endif()
+
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(MagicstompSwitcher
         ${PROJECT_SOURCES}
@@ -72,6 +84,10 @@ if(${WITH_QT_GUI} STREQUAL ON)
     target_link_libraries(MagicstompSwitcher PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 else()
     target_link_libraries(MagicstompSwitcher PRIVATE Qt${QT_VERSION_MAJOR}::Core)
+endif()
+
+if(${WITH_SSD1306_DISPLAY} STREQUAL ON)
+    target_link_libraries(MagicstompSwitcher PRIVATE ssd1306_i2c)
 endif()
 
 target_link_libraries(MagicstompSwitcher PRIVATE asound)

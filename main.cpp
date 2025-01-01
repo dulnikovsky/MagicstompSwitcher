@@ -6,6 +6,10 @@
 #include <QCoreApplication>
 #endif
 
+#ifdef WITH_SSD1306_DISPLAY
+#include "ssd1306_display.h"
+#endif
+
 #include "msswitcherthread.h"
 #include "msswitchersettings.h"
 
@@ -55,6 +59,14 @@ int main(int argc, char *argv[])
     QObject::connect(&mw, SIGNAL(masterCCNumberChanged(int)), &settings, SLOT(setMasterCCNumber(int)));
     QObject::connect(&mw, SIGNAL(effectLevelCCNumberChanged(int)), &settings, SLOT(setEffectCCNumber(int)));
     QObject::connect(&mw, SIGNAL(midiThroughChanged(bool)), &settings, SLOT(setMidiThrough(bool)));
+#endif
+
+#ifdef WITH_SSD1306_DISPLAY
+    SSD1306Display ssd1306display("/dev/i2c-0");
+
+    QObject::connect(&mssThread, SIGNAL(programChanged(unsigned char)), &ssd1306display, SLOT(setCurrentProgram(unsigned char)));
+    QObject::connect(&mssThread, SIGNAL(currentPatchChanged(unsigned int, QString, bool)),
+                     &ssd1306display, SLOT(onCurrentPatchChanged(unsigned int, QString, bool)));
 #endif
 
     mssThread.start();
