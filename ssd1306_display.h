@@ -16,7 +16,7 @@ public slots:
 
     void onCurrentPatchChanged(unsigned int id, const QString &name, bool isRequesting);
 
-    //void onMsDisconnected(unsigned int id);
+    void onMsDisconnected(unsigned int id);
 
 private:
     ssd1306_i2c_t *oled{nullptr};

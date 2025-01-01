@@ -62,3 +62,9 @@ void SSD1306Display::updateDisplay()
         lastRequestingState = isRequestingState;
     }
 }
+
+void SSD1306Display::onMsDisconnected(unsigned int id)
+{
+    currentPatchNamesMap.remove(id);
+    updateDisplay();
+}

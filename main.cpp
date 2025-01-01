@@ -67,6 +67,7 @@ int main(int argc, char *argv[])
     QObject::connect(&mssThread, SIGNAL(programChanged(unsigned char)), &ssd1306display, SLOT(setCurrentProgram(unsigned char)));
     QObject::connect(&mssThread, SIGNAL(currentPatchChanged(unsigned int, QString, bool)),
                      &ssd1306display, SLOT(onCurrentPatchChanged(unsigned int, QString, bool)));
+    QObject::connect(&mssThread, SIGNAL(msDisconnected(unsigned int)), &ssd1306display, SLOT(onMsDisconnected(unsigned int)));
 #endif
 
     mssThread.start();
