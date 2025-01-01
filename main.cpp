@@ -1,6 +1,11 @@
 
+#ifdef WITH_QT_GUI
 #include <QApplication>
 #include "mainwidget.h"
+#else
+#include <QCoreApplication>
+#endif
+
 #include "msswitcherthread.h"
 #include "msswitchersettings.h"
 
@@ -8,15 +13,19 @@ const MSSwitcherThread *switcherThread;
 
 int main(int argc, char *argv[])
 {
+
+#ifdef WITH_QT_GUI
     QApplication app(argc, argv);
+#else
+    QCoreApplication app(argc, argv);
+#endif
+
     app.setApplicationName(QStringLiteral("MagicstompSwitcher"));
     app.setOrganizationName(QStringLiteral("RobertVetter"));
     app.setOrganizationDomain(QStringLiteral("robertvetter.com"));
     app.setApplicationVersion(QStringLiteral("1.00"));
 
     MSSwitcherSettings settings;
-
-    MainWidget mw;
 
     MSSwitcherThread mssThread;
     switcherThread = &mssThread;
@@ -25,6 +34,9 @@ int main(int argc, char *argv[])
     mssThread.setGainCCNumber(settings.GainCCNumber());
     mssThread.setEffectCCNumber(settings.EffectCCNumber());
     mssThread.setMidiThrough(settings.MidiThrough());
+
+ #ifdef WITH_QT_GUI
+    MainWidget mw;
 
     QObject::connect(&mssThread, SIGNAL(programChanged(unsigned char)), &mw, SLOT(setCurrentProgram(unsigned char)));
     QObject::connect(&mssThread, SIGNAL(currentPatchChanged(unsigned int, QString, bool)),
@@ -43,9 +55,11 @@ int main(int argc, char *argv[])
     QObject::connect(&mw, SIGNAL(masterCCNumberChanged(int)), &settings, SLOT(setMasterCCNumber(int)));
     QObject::connect(&mw, SIGNAL(effectLevelCCNumberChanged(int)), &settings, SLOT(setEffectCCNumber(int)));
     QObject::connect(&mw, SIGNAL(midiThroughChanged(bool)), &settings, SLOT(setMidiThrough(bool)));
+#endif
 
     mssThread.start();
 
+ #ifdef WITH_QT_GUI
     if(app.platformName() == QStringLiteral("linuxfb"))
     {
         mw.showFullScreen();
@@ -55,7 +69,7 @@ int main(int argc, char *argv[])
         mw.resize(480, 320);
         mw.show();
     }
-
+#endif
     int ret = app.exec();
 
     mssThread.terminate();

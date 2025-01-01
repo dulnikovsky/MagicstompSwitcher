@@ -4,8 +4,6 @@ project(MagicstompSwitcher LANGUAGES CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -13,8 +11,18 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets REQUIRED)
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
+SET(WITH_QT_GUI TRUE CACHE BOOL "Some user-specified option")
+
+if(${WITH_QT_GUI} STREQUAL ON)
+    message("Building with Qt GUI")
+    find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets REQUIRED)
+    find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
+    add_compile_definitions(WITH_QT_GUI)
+else()
+    message("Building without Qt GUI")
+    find_package(QT NAMES Qt6 Qt5 COMPONENTS Core REQUIRED)
+    find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core REQUIRED)
+endif()
 
 set(PROJECT_SOURCES
     main.cpp
@@ -25,19 +33,24 @@ set(PROJECT_SOURCES
     alsafunc.cpp
     msswitcherthread.h
     msswitcherthread.cpp
-    mainwidget.h
-    mainwidget.cpp
-    currentpatchesmodel.h
-    currentpatchesmodel.cpp
-    delayclickablelabel.h
-    delayclickablelabel.cpp
-    preferencesdialog.h
-    preferencesdialog.cpp
     msswitchersettings.h
     msswitchersettings.cpp
-    aconnectwidget.h
-    aconnectwidget.cpp
 )
+
+if(${WITH_QT_GUI} STREQUAL ON)
+    list (APPEND PROJECT_SOURCES
+        mainwidget.h
+        mainwidget.cpp
+        currentpatchesmodel.h
+        currentpatchesmodel.cpp
+        delayclickablelabel.h
+        delayclickablelabel.cpp
+        preferencesdialog.h
+        preferencesdialog.cpp
+        aconnectwidget.h
+        aconnectwidget.cpp
+    )
+endif()
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(MagicstompSwitcher
@@ -55,6 +68,10 @@ else()
     endif()
 endif()
 
-target_link_libraries(MagicstompSwitcher PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+if(${WITH_QT_GUI} STREQUAL ON)
+    target_link_libraries(MagicstompSwitcher PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+else()
+    target_link_libraries(MagicstompSwitcher PRIVATE Qt${QT_VERSION_MAJOR}::Core)
+endif()
 
 target_link_libraries(MagicstompSwitcher PRIVATE asound)
