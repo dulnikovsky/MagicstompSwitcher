@@ -61,6 +61,8 @@ if(${WITH_SSD1306_DISPLAY} STREQUAL ON)
     list (APPEND PROJECT_SOURCES
         ssd1306_display.h
         ssd1306_display.cpp
+        gpiohandlerthread.h
+        gpiohandlerthread.cpp
     )
 endif()
 

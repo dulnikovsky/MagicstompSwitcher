@@ -8,6 +8,7 @@
 
 #ifdef WITH_SSD1306_DISPLAY
 #include "ssd1306_display.h"
+#include "gpiohandlerthread.h"
 #endif
 
 #include "msswitcherthread.h"
@@ -72,6 +73,12 @@ int main(int argc, char *argv[])
 
     mssThread.start();
 
+#ifdef WITH_SSD1306_DISPLAY
+    static const QList<int>offsetList({0, 2, 3});
+    GPIOHandlerThread gpioHandlerThread(QStringLiteral("/dev/gpiochip0"), offsetList);
+    gpioHandlerThread.start();
+#endif
+
  #ifdef WITH_QT_GUI
     if(app.platformName() == QStringLiteral("linuxfb"))
     {
@@ -87,5 +94,9 @@ int main(int argc, char *argv[])
 
     mssThread.terminate();
     mssThread.wait();
+#ifdef WITH_SSD1306_DISPLAY
+    gpioHandlerThread.finish();
+    gpioHandlerThread.wait();
+#endif
     return ret;
 }
