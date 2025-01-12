@@ -32,6 +32,8 @@ endif()
 set(PROJECT_SOURCES
     main.cpp
     magicstomp.h
+    msswitcherapp.h
+    msswitcherapp.cpp
     midiportidalsa.h
     midiportidalsa.cpp
     alsafunc.h

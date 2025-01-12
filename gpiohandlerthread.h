@@ -29,12 +29,16 @@ class GPIOHandlerThread : public QThread
 {
     Q_OBJECT
 public:
+    enum EventEdge { EdgeRising, EdgeFalling};
+
     GPIOHandlerThread(const QString &device, const QList<int> &offsetList, QObject *parent=nullptr);
 
 public slots:
     void start(Priority priority=InheritPriority);
     void finish();
 
+signals:
+    void gpioEvent(int offset, int id);
 
 protected:
     void run() override;

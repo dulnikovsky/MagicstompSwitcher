@@ -1,85 +1,47 @@
 
-#ifdef WITH_QT_GUI
-#include <QApplication>
-#include "mainwidget.h"
-#else
-#include <QCoreApplication>
-#endif
+/****************************************************************************
+**
+** Copyright (C) 2025 Robert Vetter.
+**
+** This file is part of the MagicstompSwitcher
+**
+** THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
+** ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY
+** IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR
+** PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
+**
+** GNU General Public License Usage
+** This file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version . The licenses are
+** as published by the Free Software Foundation and appearing in the file LICENSE
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
+**/
 
-#ifdef WITH_SSD1306_DISPLAY
-#include "ssd1306_display.h"
-#include "gpiohandlerthread.h"
-#endif
-
-#include "msswitcherthread.h"
-#include "msswitchersettings.h"
-
-const MSSwitcherThread *switcherThread;
+#include "msswitcherapp.h"
 
 int main(int argc, char *argv[])
 {
-
-#ifdef WITH_QT_GUI
-    QApplication app(argc, argv);
-#else
-    QCoreApplication app(argc, argv);
-#endif
-
-    app.setApplicationName(QStringLiteral("MagicstompSwitcher"));
-    app.setOrganizationName(QStringLiteral("RobertVetter"));
-    app.setOrganizationDomain(QStringLiteral("robertvetter.com"));
-    app.setApplicationVersion(QStringLiteral("1.00"));
-
-    MSSwitcherSettings settings;
-
-    MSSwitcherThread mssThread;
-    switcherThread = &mssThread;
-    mssThread.setMidiChannel(settings.MidiChannel());
-    mssThread.setMasterCCNumber(settings.MasterCCNumber());
-    mssThread.setGainCCNumber(settings.GainCCNumber());
-    mssThread.setEffectCCNumber(settings.EffectCCNumber());
-    mssThread.setMidiThrough(settings.MidiThrough());
+    MSSwitcherApp app(argc, argv);
 
  #ifdef WITH_QT_GUI
     MainWidget mw;
 
-    QObject::connect(&mssThread, SIGNAL(programChanged(unsigned char)), &mw, SLOT(setCurrentProgram(unsigned char)));
-    QObject::connect(&mssThread, SIGNAL(currentPatchChanged(unsigned int, QString, bool)),
+    QObject::connect(&app, SIGNAL(programChanged(unsigned char)), &mw, SLOT(setCurrentProgram(unsigned char)));
+    QObject::connect(&app, SIGNAL(currentPatchChanged(unsigned int, QString, bool)),
                      &mw, SLOT(onCurrentPatchChanged(unsigned int, QString, bool)));
 
-    QObject::connect(&mssThread, SIGNAL(msDisconnected(unsigned int)), &mw, SLOT(onMsDisconnected(unsigned int)));
+    QObject::connect(&app, SIGNAL(msDisconnected(unsigned int)), &mw, SLOT(onMsDisconnected(unsigned int)));
 
-    QObject::connect(&mw, SIGNAL(midiChannelChanged(unsigned int)), &mssThread, SLOT(setMidiChannel(unsigned int)));
-    QObject::connect(&mw, SIGNAL(gainCCNumberChanged(int)), &mssThread, SLOT(setGainCCNumber(int)));
-    QObject::connect(&mw, SIGNAL(masterCCNumberChanged(int)), &mssThread, SLOT(setMasterCCNumber(int)));
-    QObject::connect(&mw, SIGNAL(effectLevelCCNumberChanged(int)), &mssThread, SLOT(setEffectCCNumber(int)));
-    QObject::connect(&mw, SIGNAL(midiThroughChanged(bool)), &mssThread, SLOT(setMidiThrough(bool)));
+    QObject::connect(&mw, SIGNAL(midiChannelChanged(unsigned int)), &app, SLOT(setMidiChannel(unsigned int)));
+    QObject::connect(&mw, SIGNAL(gainCCNumberChanged(int)), &app, SLOT(setGainCCNumber(int)));
+    QObject::connect(&mw, SIGNAL(masterCCNumberChanged(int)), &app, SLOT(setMasterCCNumber(int)));
+    QObject::connect(&mw, SIGNAL(effectLevelCCNumberChanged(int)), &app, SLOT(setEffectCCNumber(int)));
+    QObject::connect(&mw, SIGNAL(midiThroughChanged(bool)), &app, SLOT(setMidiThrough(bool)));
 
-    QObject::connect(&mw, SIGNAL(midiChannelChanged(unsigned int)), &settings, SLOT(setMidiChannel(unsigned int)));
-    QObject::connect(&mw, SIGNAL(gainCCNumberChanged(int)), &settings, SLOT(setGainCCNumber(int)));
-    QObject::connect(&mw, SIGNAL(masterCCNumberChanged(int)), &settings, SLOT(setMasterCCNumber(int)));
-    QObject::connect(&mw, SIGNAL(effectLevelCCNumberChanged(int)), &settings, SLOT(setEffectCCNumber(int)));
-    QObject::connect(&mw, SIGNAL(midiThroughChanged(bool)), &settings, SLOT(setMidiThrough(bool)));
-#endif
-
-#ifdef WITH_SSD1306_DISPLAY
-    SSD1306Display ssd1306display("/dev/i2c-0");
-
-    QObject::connect(&mssThread, SIGNAL(programChanged(unsigned char)), &ssd1306display, SLOT(setCurrentProgram(unsigned char)));
-    QObject::connect(&mssThread, SIGNAL(currentPatchChanged(unsigned int, QString, bool)),
-                     &ssd1306display, SLOT(onCurrentPatchChanged(unsigned int, QString, bool)));
-    QObject::connect(&mssThread, SIGNAL(msDisconnected(unsigned int)), &ssd1306display, SLOT(onMsDisconnected(unsigned int)));
-#endif
-
-    mssThread.start();
-
-#ifdef WITH_SSD1306_DISPLAY
-    static const QList<int>offsetList({0, 2, 3});
-    GPIOHandlerThread gpioHandlerThread(QStringLiteral("/dev/gpiochip0"), offsetList);
-    gpioHandlerThread.start();
-#endif
-
- #ifdef WITH_QT_GUI
     if(app.platformName() == QStringLiteral("linuxfb"))
     {
         mw.showFullScreen();
@@ -91,12 +53,5 @@ int main(int argc, char *argv[])
     }
 #endif
     int ret = app.exec();
-
-    mssThread.terminate();
-    mssThread.wait();
-#ifdef WITH_SSD1306_DISPLAY
-    gpioHandlerThread.finish();
-    gpioHandlerThread.wait();
-#endif
     return ret;
 }

@@ -40,11 +40,11 @@ int MSSwitcherSettings::GainCCNumber() const
 }
 int MSSwitcherSettings::MasterCCNumber() const
 {
-    return value(QStringLiteral("EffectCCNUmber"),-1).toInt();
+    return value(QStringLiteral("MasterCCNumber"),-1).toInt();
 }
 int MSSwitcherSettings::EffectCCNumber() const
 {
-    return value(QStringLiteral("MasterCCNumber"),-1).toInt();
+    return value(QStringLiteral("EffectCCNUmber"),-1).toInt();
 }
 bool MSSwitcherSettings::MidiThrough() const
 {

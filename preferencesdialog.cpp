@@ -9,47 +9,44 @@
 #include <QSpinBox>
 #include <QPushButton>
 #include <QCheckBox>
-#include <QApplication>
-
-#include "msswitcherthread.h"
-
+#include "msswitcherapp.h"
 #include "aconnectwidget.h"
-
-extern const MSSwitcherThread *switcherThread;
 
 PreferencesDialog::PreferencesDialog(QWidget *parent) : QWidget(parent)
 {
+    MSSwitcherApp *mssswitcherApp = static_cast<MSSwitcherApp *>(qApp);
+
     channelSpinBox = new QSpinBox();
     channelSpinBox->setMaximum(16);
     channelSpinBox->setMinimum(0);
     channelSpinBox->setSpecialValueText(QStringLiteral("OMNI"));
-    channelSpinBox->setValue(switcherThread->MidiChannel());
+    channelSpinBox->setValue(mssswitcherApp->MidiChannel());
     connect(channelSpinBox, SIGNAL(valueChanged(int)),this, SLOT(channelSpinBoxChanged(int)));
 
     gainCCNUmberSpinBox = new QSpinBox();
     gainCCNUmberSpinBox->setMaximum(127);
     gainCCNUmberSpinBox->setMinimum(-1);
     gainCCNUmberSpinBox->setSpecialValueText(QStringLiteral("OFF"));
-    gainCCNUmberSpinBox->setValue(switcherThread->GainCCNumber());
+    gainCCNUmberSpinBox->setValue(mssswitcherApp->GainCCNumber());
     connect(gainCCNUmberSpinBox, SIGNAL(valueChanged(int)),this, SIGNAL(gainCCNumberChanged(int)));
 
     masterCCNUmberSpinBox = new QSpinBox();
     masterCCNUmberSpinBox->setMaximum(127);
     masterCCNUmberSpinBox->setMinimum(-1);
     masterCCNUmberSpinBox->setSpecialValueText(QStringLiteral("OFF"));
-    masterCCNUmberSpinBox->setValue(switcherThread->MasterCCNumber());
+    masterCCNUmberSpinBox->setValue(mssswitcherApp->MasterCCNumber());
     connect(masterCCNUmberSpinBox, SIGNAL(valueChanged(int)),this, SIGNAL(masterCCNumberChanged(int)));
 
     effectLevelCCNUmberSpinBox = new QSpinBox();
     effectLevelCCNUmberSpinBox->setMaximum(127);
     effectLevelCCNUmberSpinBox->setMinimum(-1);
     effectLevelCCNUmberSpinBox->setSpecialValueText(QStringLiteral("OFF"));
-    effectLevelCCNUmberSpinBox->setValue(switcherThread->EffectCCNumber());
+    effectLevelCCNUmberSpinBox->setValue(mssswitcherApp->EffectCCNumber());
     connect(effectLevelCCNUmberSpinBox, SIGNAL(valueChanged(int)),this, SIGNAL(effectLevelCCNumberChanged(int)));
 
     QCheckBox *midiThroughCheckBox = new QCheckBox();
     midiThroughCheckBox->setCheckable(true);
-    midiThroughCheckBox->setChecked(switcherThread->MidiThrough());
+    midiThroughCheckBox->setChecked(mssswitcherApp->MidiThrough());
     connect(midiThroughCheckBox, SIGNAL(toggled(bool)),this, SIGNAL(midiThroughChanged(bool)));
 
     QFormLayout *formLyt = new QFormLayout();

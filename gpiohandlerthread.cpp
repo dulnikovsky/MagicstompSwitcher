@@ -86,7 +86,8 @@ void GPIOHandlerThread::run()
         }
         gpio_v2_line_event event;
         int read_ret = read(req.fd, &event, sizeof(event));
-        if(read_ret>0) {
+        if(read_ret == sizeof(event)) {
+            emit gpioEvent(event.offset, event.id);
             qDebug("GPIO Event offset=%d, id=%d", event.offset, event.id);
         }
     }
