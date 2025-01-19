@@ -30,8 +30,10 @@
 #include <QCoreApplication>
 #endif
 
+#include <QElapsedTimer>
 class MSSwitcherThread;
 class SSD1306Display;
+
 #ifdef WITH_SSD1306_DISPLAY
 #include "gpiohandlerthread.h"
 #endif
@@ -60,6 +62,11 @@ public:
     int EffectCCNumber() const;
     bool MidiThrough() const;
 
+#ifdef WITH_QT_GUI
+protected:
+    bool eventFilter(QObject *obj, QEvent *ev) override;
+#endif
+
 signals:
     void programChanged(unsigned char val);
     void currentPatchChanged(unsigned int id, QString patchName, bool isRequesting);
@@ -74,6 +81,7 @@ private:
     SSD1306Display *ssd1306display;
     GPIOHandlerThread *gpioHandlerThread;
 #endif
+    QElapsedTimer f1KeyTimer;
 };
 
 #endif

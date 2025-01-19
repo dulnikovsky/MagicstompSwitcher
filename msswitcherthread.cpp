@@ -77,7 +77,7 @@ int MSSwitcherThread::requestPatch(unsigned char index, const MidiClientPortId &
     return ret;
 }
 
-int MSSwitcherThread::sendPatchToTemp(unsigned char index, const MidiClientPortId &srcPort, const MidiClientPortId &destPort,
+int MSSwitcherThread::sendPatchToTemp(const MidiClientPortId &srcPort, const MidiClientPortId &destPort,
                     const unsigned char *patchCommonData, const unsigned char *patchEffectData)
 {
     vector<unsigned char> dataVector;
@@ -91,7 +91,7 @@ int MSSwitcherThread::sendPatchToTemp(unsigned char index, const MidiClientPortI
     dataVector.push_back(0x00);
     dataVector.push_back(0x30);
     dataVector.push_back(0x03);
-    dataVector.push_back(index);
+    dataVector.push_back(currentProgram);
     dataVector.push_back( calcChecksum( &(*dataVector.cbegin()) + ub99SysExHeaderSize, dataVector.size() - ub99SysExHeaderSize));
     dataVector.push_back(0xF7);
 
@@ -153,7 +153,7 @@ int MSSwitcherThread::sendPatchToTemp(unsigned char index, const MidiClientPortI
     dataVector.push_back(0x00);
     dataVector.push_back(0x30);
     dataVector.push_back(0x13);
-    dataVector.push_back(index);
+    dataVector.push_back(currentProgram);
     dataVector.push_back( calcChecksum( &(*dataVector.cbegin()) + ub99SysExHeaderSize, dataVector.size() - ub99SysExHeaderSize));
     dataVector.push_back(0xF7);
 
@@ -171,6 +171,26 @@ int MSSwitcherThread::sendPatchToTemp(unsigned char index, const MidiClientPortI
     return ret;
 }
 
+void MSSwitcherThread::sendAllToTemp()
+{
+    for (const auto& it: msMap)
+    {
+        if( it.second.data.size() != numOfPatches*PatchTotalLength)
+            continue; // Size does not match, means something went wrong
+
+        if( it.second.dumpState != SysExDumpState::Idle)
+            continue;
+
+        sendPatchToTemp(thisOutPort, it.first,
+                        &(*(it.second.data.cbegin()+PatchTotalLength*currentProgram)),
+                        &(*(it.second.data.cbegin()+PatchTotalLength*currentProgram)) + PatchCommonLength);
+
+        unsigned int id = (it.first.clientId() << 8) | it.first.portId();
+        const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(it.second.data.cbegin()+PatchTotalLength*currentProgram + PatchName)));
+        QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
+        emit currentPatchChanged(id, QString(nameArr), false);
+    }
+}
 
 void MSSwitcherThread::sendTempEffectParameter(const MidiClientPortId &srcPort, const MidiClientPortId &destPort, unsigned char offset, const std::vector<unsigned char> &data)
 {
@@ -318,7 +338,7 @@ void MSSwitcherThread::run()
                                     msDataState.patchInRequest = -1;
                                     unSubscribePort(handle, msMapIter->first, thisInPort);
 
-                                    sendPatchToTemp(currentProgram, thisOutPort, msMapIter->first,
+                                    sendPatchToTemp( thisOutPort, msMapIter->first,
                                                     &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)),
                                                     &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)) + PatchCommonLength);
 
@@ -373,23 +393,7 @@ void MSSwitcherThread::run()
                 currentProgram = ev->data.raw8.d[8];
                 emit programChanged(currentProgram);
 
-                for (auto& it: msMap)
-                {
-                    if( it.second.data.size() != numOfPatches*PatchTotalLength)
-                        continue; // Size does not match, means something went wrong
-
-                    if( it.second.dumpState != SysExDumpState::Idle)
-                        continue;
-
-                    sendPatchToTemp(currentProgram, thisOutPort, it.first,
-                                    &(*(it.second.data.cbegin()+PatchTotalLength*currentProgram)),
-                                    &(*(it.second.data.cbegin()+PatchTotalLength*currentProgram)) + PatchCommonLength);
-
-                    unsigned int id = (it.first.clientId() << 8) | it.first.portId();
-                    const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(it.second.data.cbegin()+PatchTotalLength*currentProgram + PatchName)));
-                    QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
-                    emit currentPatchChanged(id, QString(nameArr), false);
-                }
+                sendAllToTemp();
             }
         }
         else if(ev->type==SND_SEQ_EVENT_CONTROLLER)
@@ -631,4 +635,32 @@ void MSSwitcherThread::setMidiThrough(bool val)
         }
     }
     midiThrough = val;
+}
+
+void MSSwitcherThread::switchPatchUp()
+{
+    currentProgram = (currentProgram+1)%(numOfPatches-1);
+    emit programChanged(currentProgram);
+    sendAllToTemp();
+}
+
+void MSSwitcherThread::switchPatchDown()
+{
+    if(currentProgram == 0) {
+        currentProgram = numOfPatches -1;
+    } else {
+        currentProgram = (currentProgram-1)%(numOfPatches-1);
+    }
+    emit programChanged(currentProgram);
+    sendAllToTemp();
+}
+
+
+bool MSSwitcherThread::isInSystexDumpState() const
+{
+    for (auto const& ms_iter : msMap) {
+        if(ms_iter.second.dumpState != SysExDumpState::Idle)
+            return true;
+    }
+    return false;
 }

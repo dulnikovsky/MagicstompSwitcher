@@ -24,10 +24,14 @@
 
 #include "msswitcherthread.h"
 #include "msswitchersettings.h"
+#include <QTimer>
 
 #ifdef WITH_SSD1306_DISPLAY
 #include "ssd1306_display.h"
 #include <linux/gpio.h>
+#endif
+#ifdef WITH_QT_GUI
+#include <QKeyEvent>
 #endif
 
 MSSwitcherApp::MSSwitcherApp(int &argc, char **argv)
@@ -96,6 +100,43 @@ void MSSwitcherApp::onGpioEvent(int offset, int id)
 
     }
 }
+
+#ifdef WITH_QT_GUI
+bool MSSwitcherApp::eventFilter(QObject *obj, QEvent *event)
+{
+    if(event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyPressEvent = static_cast<QKeyEvent *>(event);
+        if(keyPressEvent->key()==Qt::Key_F10) {
+            f1KeyTimer.start();
+            return true;
+        }
+    }
+    else if(event->type() == QEvent::KeyRelease) {
+        QKeyEvent *keyReleaseEvent = static_cast<QKeyEvent *>(event);
+        if(keyReleaseEvent->key()==Qt::Key_F10) {
+            if(f1KeyTimer.isValid()) {
+                quint64 f1elapsed = f1KeyTimer.elapsed();
+                if(f1elapsed > 500 && f1elapsed < 3000 & mssThread->isInSystexDumpState() == false) {
+                    mssThread->terminate();
+                    mssThread->wait();
+                    mssThread->start();
+                }
+                f1KeyTimer.invalidate();
+            }
+            return true;
+        }
+        if(keyReleaseEvent->key()==Qt::Key_Up) {
+            mssThread->switchPatchUp();
+            return true;
+        }
+        if(keyReleaseEvent->key()==Qt::Key_Down) {
+            mssThread->switchPatchDown();
+            return true;
+        }
+    }
+    return QApplication::eventFilter(obj, event);
+}
+#endif
 
 void MSSwitcherApp::setMidiChannel(unsigned int val)
 {

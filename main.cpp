@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
         mw.resize(480, 320);
         mw.show();
     }
+    mw.installEventFilter(&app);
 #endif
     int ret = app.exec();
     return ret;

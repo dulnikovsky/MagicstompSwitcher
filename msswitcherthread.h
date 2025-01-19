@@ -51,7 +51,12 @@ public slots:
     void setEffectCCNumber(int val) { effectLevelCCNumber=val;}
     void setMidiThrough(bool val);
 
+    void switchPatchUp();
+    void switchPatchDown();
+
 public:
+    bool isInSystexDumpState() const;
+
     unsigned int MidiChannel() const { return midiChannel;}
     int GainCCNumber() const { return gainCCNumber; }
     int MasterCCNumber() const { return masterCCNumber; }
@@ -91,8 +96,10 @@ private:
 
     int requestPatch(unsigned char index, const MidiClientPortId &srcPort, const MidiClientPortId &destPort);
 
-    int sendPatchToTemp(unsigned char index, const MidiClientPortId &srcPort, const MidiClientPortId &destPort,
+    int sendPatchToTemp(const MidiClientPortId &srcPort, const MidiClientPortId &destPort,
                         const unsigned char *patchCommonData, const unsigned char *patchEffectData);
+
+    void sendAllToTemp();
 
     void sendTempEffectParameter(const MidiClientPortId &srcPort, const MidiClientPortId &destPort, unsigned char offset, const std::vector<unsigned char> &data);
 
