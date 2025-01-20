@@ -18,6 +18,8 @@ public slots:
 
     void onMsDisconnected(unsigned int id);
 
+    void setInverted(bool val);
+
 private:
     ssd1306_i2c_t *oled{nullptr};
     ssd1306_framebuffer_t *fbp{nullptr};

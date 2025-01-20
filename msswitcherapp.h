@@ -30,9 +30,9 @@
 #include <QCoreApplication>
 #endif
 
-#include <QElapsedTimer>
 class MSSwitcherThread;
 class SSD1306Display;
+class QTimer;
 
 #ifdef WITH_SSD1306_DISPLAY
 #include "gpiohandlerthread.h"
@@ -74,6 +74,7 @@ signals:
 
 private slots:
     void onGpioEvent(int offset, int id);
+    void onF1Timer();
     void isQuitting();
 private:
     MSSwitcherThread *mssThread;
@@ -81,7 +82,8 @@ private:
     SSD1306Display *ssd1306display;
     GPIOHandlerThread *gpioHandlerThread;
 #endif
-    QElapsedTimer f1KeyTimer;
+    QTimer *f1KeyTimer{nullptr};
+    quint32 f1TimerCounter{0};
 };
 
 #endif

@@ -54,6 +54,8 @@ public slots:
     void switchPatchUp();
     void switchPatchDown();
 
+    void exitEventLoop() { doRun = false; }
+
 public:
     bool isInSystexDumpState() const;
 
@@ -114,6 +116,9 @@ private:
 
     QElapsedTimer elTimer;
     bool checkCCIntencity(MSDataState &msstate);
+
+    struct pollfd seqPollFd;
+    bool doRun{true};
 };
 
 #endif // MSSWITCHERTHREAD_H

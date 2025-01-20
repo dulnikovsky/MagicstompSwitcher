@@ -75,12 +75,14 @@ MSSwitcherApp::MSSwitcherApp(int &argc, char **argv)
     connect(gpioHandlerThread, SIGNAL(gpioEvent(int, int)), this, SLOT(onGpioEvent(int, int)));
     gpioHandlerThread->start();
 #endif
+    f1KeyTimer = new QTimer(this);
+    connect(f1KeyTimer, SIGNAL(timeout()), this, SLOT(onF1Timer()));
     connect(this, SIGNAL(aboutToQuit()), this, SLOT(isQuitting()));
 }
 
 void MSSwitcherApp::isQuitting()
 {
-    mssThread->terminate();
+    mssThread->exitEventLoop();
     mssThread->wait();
 #ifdef WITH_SSD1306_DISPLAY
     gpioHandlerThread->finish();
@@ -90,15 +92,34 @@ void MSSwitcherApp::isQuitting()
 
 void MSSwitcherApp::onGpioEvent(int offset, int id)
 {
+#ifdef WITH_SSD1306_DISPLAY
     if(offset==0) { // F1 Key
-
+        if(id==GPIO_V2_LINE_EVENT_RISING_EDGE && mssThread->isInSystexDumpState() == false) {
+            f1KeyTimer->start(2000);
+        } else if(id==GPIO_V2_LINE_EVENT_FALLING_EDGE) {
+            if(! f1KeyTimer->isActive())
+                return;
+            f1KeyTimer->stop();
+            ssd1306display->setInverted(false);
+            if(f1TimerCounter==1 && mssThread->isInSystexDumpState() == false) {
+                mssThread->exitEventLoop();
+                mssThread->wait();
+                mssThread->start();
+            }
+            f1TimerCounter = 0;
+        }
     }
     else if(offset==2) { // F2 Key
-
+        if(id==GPIO_V2_LINE_EVENT_FALLING_EDGE) {
+            mssThread->switchPatchUp();
+        }
     }
     else if(offset==3) { // F3 Key
-
+        if(id==GPIO_V2_LINE_EVENT_FALLING_EDGE) {
+            mssThread->switchPatchDown();
+        }
     }
+#endif
 }
 
 #ifdef WITH_QT_GUI
@@ -106,23 +127,21 @@ bool MSSwitcherApp::eventFilter(QObject *obj, QEvent *event)
 {
     if(event->type() == QEvent::KeyPress) {
         QKeyEvent *keyPressEvent = static_cast<QKeyEvent *>(event);
-        if(keyPressEvent->key()==Qt::Key_F10) {
-            f1KeyTimer.start();
+        if(keyPressEvent->key()==Qt::Key_Control && mssThread->isInSystexDumpState() == false) {
+            f1KeyTimer->start(2000);
             return true;
         }
     }
     else if(event->type() == QEvent::KeyRelease) {
         QKeyEvent *keyReleaseEvent = static_cast<QKeyEvent *>(event);
-        if(keyReleaseEvent->key()==Qt::Key_F10) {
-            if(f1KeyTimer.isValid()) {
-                quint64 f1elapsed = f1KeyTimer.elapsed();
-                if(f1elapsed > 500 && f1elapsed < 3000 & mssThread->isInSystexDumpState() == false) {
-                    mssThread->terminate();
-                    mssThread->wait();
-                    mssThread->start();
-                }
-                f1KeyTimer.invalidate();
+        if(keyReleaseEvent->key()==Qt::Key_Control) {
+            f1KeyTimer->stop();
+            if(f1TimerCounter==1 && mssThread->isInSystexDumpState() == false) {
+                mssThread->exitEventLoop();
+                mssThread->wait();
+                mssThread->start();
             }
+            f1TimerCounter = 0;
             return true;
         }
         if(keyReleaseEvent->key()==Qt::Key_Up) {
@@ -137,6 +156,18 @@ bool MSSwitcherApp::eventFilter(QObject *obj, QEvent *event)
     return QApplication::eventFilter(obj, event);
 }
 #endif
+
+void MSSwitcherApp::onF1Timer()
+{
+    f1TimerCounter++;
+#ifdef WITH_SSD1306_DISPLAY
+    if(f1TimerCounter == 1) {
+        ssd1306display->setInverted(true);
+    } else {
+        ssd1306display->setInverted(false);
+    }
+#endif
+}
 
 void MSSwitcherApp::setMidiChannel(unsigned int val)
 {

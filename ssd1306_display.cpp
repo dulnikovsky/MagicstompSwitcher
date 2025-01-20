@@ -68,3 +68,11 @@ void SSD1306Display::onMsDisconnected(unsigned int id)
     currentPatchNamesMap.remove(id);
     updateDisplay();
 }
+
+void SSD1306Display::setInverted(bool val)
+{
+    if(val)
+        ssd1306_i2c_run_cmd(oled, SSD1306_I2C_CMD_DISP_INVERTED, 0, 0);
+    else
+        ssd1306_i2c_run_cmd(oled, SSD1306_I2C_CMD_DISP_NORMAL, 0, 0);
+}

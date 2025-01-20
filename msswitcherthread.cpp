@@ -32,8 +32,7 @@ static const char *appName = "MagicstompSwitcher";
 MSSwitcherThread::MSSwitcherThread(QObject *parent)
     :QThread(parent)
 {
-    snd_seq_open(&handle, "default", SND_SEQ_OPEN_DUPLEX, 0);
-
+    snd_seq_open(&handle, "default", SND_SEQ_OPEN_DUPLEX, SND_SEQ_NONBLOCK);
     snd_seq_set_client_name(handle, appName);
 
     unsigned char inPort = snd_seq_create_simple_port(handle, "IN",
@@ -43,6 +42,14 @@ MSSwitcherThread::MSSwitcherThread(QObject *parent)
 
     thisInPort = MidiClientPortId(snd_seq_client_id(handle), inPort);
     thisOutPort = MidiClientPortId(snd_seq_client_id(handle), outPort);
+
+    int count = snd_seq_poll_descriptors_count(handle, POLLIN);
+    if(count != 1) {
+        qWarning("Poll descriptor count higher than 1????");
+    }
+    count = snd_seq_poll_descriptors(handle, &seqPollFd, 1, POLLIN);
+    seqPollFd.events = POLLIN;
+    seqPollFd.revents = 0;
 
     subscribePort(handle, MidiClientPortId(SND_SEQ_CLIENT_SYSTEM, SND_SEQ_PORT_SYSTEM_ANNOUNCE), thisInPort);
 
@@ -270,6 +277,8 @@ void MSSwitcherThread::scan()
 
 void MSSwitcherThread::run()
 {
+    doRun = true;
+
     emit programChanged(currentProgram);
     snd_seq_event_t *ev;
 
@@ -286,209 +295,219 @@ void MSSwitcherThread::run()
         requestPatch(++(it.second.patchInRequest), thisOutPort, it.first);
     }
 
-    // IMPORTANT snd_seq_event_input blocks even after snd_seq_close has been execuded.
-    // It will be  neccessary for this application to send an SND_SEQ_EVENT_CLIENT_EXIT to himself before terminating
-    while (snd_seq_event_input(handle, &ev) >= 0)
-    {
-        if(ev->type==SND_SEQ_EVENT_SYSEX)
-        {
-            MidiClientPortId currentID(MidiClientPortId(ev->source.client, ev->source.port));
+    int pollret;
+    while (doRun) {
 
-            auto sysExBufferIter = sysExBufferMap.find(currentID);
-            if(sysExBufferIter == sysExBufferMap.end())
-                continue;
+        pollret = poll(&seqPollFd, 1, 100); /* use a 100 milliseconds timeout */
+        if (pollret < 0) {
+            qWarning("Poll error. Exiting thread");
+            break;
+        }
+        if(pollret == 0) { //timeout
+            continue;
+        }
+        while(snd_seq_event_input(handle, &ev) >= 0) {
 
-            auto &sysExVector = sysExBufferIter->second;
-
-            if(static_cast<unsigned char *>(ev->data.ext.ptr)[0] == 0xF0)
-                sysExVector.clear();
-
-            if(ev->data.ext.len>256 || sysExVector.size()>256)
-                continue; // Sanity check
-
-            auto msMapIter = msMap.find(currentID);
-            if(msMapIter == msMap.end())
-                continue;
-
-            auto &msDataState = msMapIter->second;
-
-            sysExVector.insert(sysExVector.end(), static_cast<unsigned char *>(ev->data.ext.ptr), static_cast<unsigned char *>(ev->data.ext.ptr) + ev->data.ext.len);
-
-            if( (! sysExVector.empty()) && sysExVector.at(0) == 0xF0 && sysExVector.at(sysExVector.size()-1) == 0xF7)
+            if(ev->type==SND_SEQ_EVENT_SYSEX)
             {
-                if(sysExVector.size() >= 13 && equal(sysExVector.cbegin(), sysExVector.cbegin()+ub99SysExHeaderSize, ub99SysExHeader))
+                MidiClientPortId currentID(MidiClientPortId(ev->source.client, ev->source.port));
+
+                auto sysExBufferIter = sysExBufferMap.find(currentID);
+                if(sysExBufferIter == sysExBufferMap.end())
+                    continue;
+
+                auto &sysExVector = sysExBufferIter->second;
+
+                if(static_cast<unsigned char *>(ev->data.ext.ptr)[0] == 0xF0)
+                    sysExVector.clear();
+
+                if(ev->data.ext.len>256 || sysExVector.size()>256)
+                    continue; // Sanity check
+
+                auto msMapIter = msMap.find(currentID);
+                if(msMapIter == msMap.end())
+                    continue;
+
+                auto &msDataState = msMapIter->second;
+
+                sysExVector.insert(sysExVector.end(), static_cast<unsigned char *>(ev->data.ext.ptr), static_cast<unsigned char *>(ev->data.ext.ptr) + ev->data.ext.len);
+
+                if( (! sysExVector.empty()) && sysExVector.at(0) == 0xF0 && sysExVector.at(sysExVector.size()-1) == 0xF7)
                 {
-                    unsigned char checkSum = calcChecksum( & sysExVector.at(ub99SysExHeaderSize), sysExVector.size()-ub99SysExHeaderSize-2);
-                    if(checkSum == sysExVector.at(sysExVector.size()-2))
+                    if(sysExVector.size() >= 13 && equal(sysExVector.cbegin(), sysExVector.cbegin()+ub99SysExHeaderSize, ub99SysExHeader))
                     {
-                        if( sysExVector.at(8)==0x00 && sysExVector.at(9)==0x00)
+                        unsigned char checkSum = calcChecksum( & sysExVector.at(ub99SysExHeaderSize), sysExVector.size()-ub99SysExHeaderSize-2);
+                        if(checkSum == sysExVector.at(sysExVector.size()-2))
                         {
-                            //patch dump start message.
-                            if( sysExVector.at(10)==0x30 && sysExVector.at(11)==0x01 && msDataState.patchInRequest == sysExVector.at(12) && msDataState.dumpState == SysExDumpState::ExpectingStart)
+                            if( sysExVector.at(8)==0x00 && sysExVector.at(9)==0x00)
                             {
-                                msDataState.dumpState = SysExDumpState::ExpectingCommonData;
-                            }
-                            //patch dump end message.
-                            else if( sysExVector.at(10)==0x30 && sysExVector.at(11)==0x11 && msDataState.patchInRequest == sysExVector.at(12) && msDataState.dumpState == SysExDumpState::ExpectingEnd)
-                            {
-                                unsigned int id = (msMapIter->first.clientId() << 8) | msMapIter->first.portId();
-                                if(msDataState.patchInRequest >= (numOfPatches -1))
+                                //patch dump start message.
+                                if( sysExVector.at(10)==0x30 && sysExVector.at(11)==0x01 && msDataState.patchInRequest == sysExVector.at(12) && msDataState.dumpState == SysExDumpState::ExpectingStart)
                                 {
-                                    msDataState.dumpState = SysExDumpState::Idle;
-                                    msDataState.patchInRequest = -1;
-                                    unSubscribePort(handle, msMapIter->first, thisInPort);
-
-                                    sendPatchToTemp( thisOutPort, msMapIter->first,
-                                                    &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)),
-                                                    &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)) + PatchCommonLength);
-
-                                    const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram + PatchName)));
-                                    QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
-
-                                    emit currentPatchChanged(id, QString(nameArr), false);
+                                    msDataState.dumpState = SysExDumpState::ExpectingCommonData;
                                 }
-                                else
+                                //patch dump end message.
+                                else if( sysExVector.at(10)==0x30 && sysExVector.at(11)==0x11 && msDataState.patchInRequest == sysExVector.at(12) && msDataState.dumpState == SysExDumpState::ExpectingEnd)
                                 {
-                                    const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(msMapIter->second.data.cbegin()+PatchTotalLength*msDataState.patchInRequest + PatchName)));
-                                    QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
+                                    unsigned int id = (msMapIter->first.clientId() << 8) | msMapIter->first.portId();
+                                    if(msDataState.patchInRequest >= (numOfPatches -1))
+                                    {
+                                        msDataState.dumpState = SysExDumpState::Idle;
+                                        msDataState.patchInRequest = -1;
+                                        unSubscribePort(handle, msMapIter->first, thisInPort);
 
-                                    msDataState.dumpState = SysExDumpState::ExpectingStart;
-                                    msDataState.patchInRequest++;
-                                    msleep(70);
-                                    requestPatch(msDataState.patchInRequest, thisOutPort, currentID);
-                                    emit currentPatchChanged(id, QString(nameArr), true);
+                                        sendPatchToTemp( thisOutPort, msMapIter->first,
+                                                        &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)),
+                                                        &(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram)) + PatchCommonLength);
+
+                                        const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(msMapIter->second.data.cbegin()+PatchTotalLength*currentProgram + PatchName)));
+                                        QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
+
+                                        emit currentPatchChanged(id, QString(nameArr), false);
+                                    }
+                                    else
+                                    {
+                                        const char *firstCharNameAddr = reinterpret_cast<const char *>(&(*(msMapIter->second.data.cbegin()+PatchTotalLength*msDataState.patchInRequest + PatchName)));
+                                        QByteArray nameArr = QByteArray::fromRawData(firstCharNameAddr, PatchNameLength);
+
+                                        msDataState.dumpState = SysExDumpState::ExpectingStart;
+                                        msDataState.patchInRequest++;
+                                        msleep(70);
+                                        requestPatch(msDataState.patchInRequest, thisOutPort, currentID);
+                                        emit currentPatchChanged(id, QString(nameArr), true);
+                                    }
+                                }
+                            }
+                            else if( sysExVector.at(8)==0x00 &&  sysExVector.at(9)!=0x00)
+                            {
+                                unsigned char length = sysExVector.at(9);
+                                if(sysExVector.at(10)==0x20)
+                                {
+                                    auto iter = msMap.find(MidiClientPortId(ev->source.client, ev->source.port));
+                                    if(sysExVector.at(11)==0x00 && sysExVector.at(12)==0x00 && length==PatchCommonLength && msDataState.dumpState==SysExDumpState::ExpectingCommonData)
+                                    { // Patch common data;
+                                        if( iter != msMap.end())
+                                            iter->second.data.insert(iter->second.data.end(), &sysExVector.at(13), &sysExVector.at(13)+PatchCommonLength);
+                                        msDataState.dumpState = SysExDumpState::ExpectingEffectData;
+                                    }
+                                    else if(sysExVector.at(11)==0x01 && sysExVector.at(12)==0x00 && length==PatchEffectLength && msDataState.dumpState==SysExDumpState::ExpectingEffectData)
+                                    { // Patch effect data;
+                                        if( iter != msMap.end())
+                                            iter->second.data.insert(iter->second.data.end(), &sysExVector.at(13), &sysExVector.at(13)+PatchEffectLength);
+                                        msDataState.dumpState = SysExDumpState::ExpectingEnd;
+                                    }
                                 }
                             }
                         }
-                        else if( sysExVector.at(8)==0x00 &&  sysExVector.at(9)!=0x00)
+                    }
+                    sysExVector.clear();
+                }
+
+            }
+            else if(ev->type==SND_SEQ_EVENT_PGMCHANGE)
+            {
+                if( (midiChannel==0 || (ev->data.raw8.d[0] & 0x0F)+1 == midiChannel) && ev->data.raw8.d[8] < numOfPatches)
+                {
+                    currentProgram = ev->data.raw8.d[8];
+                    emit programChanged(currentProgram);
+
+                    sendAllToTemp();
+                }
+            }
+            else if(ev->type==SND_SEQ_EVENT_CONTROLLER)
+            {
+                if( (midiChannel==0 || (ev->data.raw8.d[0] & 0x0F)+1 == midiChannel))
+                {
+                    unsigned int ccnumber = ev->data.control.param;
+                    if((int)ccnumber == gainCCNumber)
+                    {
+                        for (auto &it: msMap)
                         {
-                            unsigned char length = sysExVector.at(9);
-                            if(sysExVector.at(10)==0x20)
-                            {
-                                auto iter = msMap.find(MidiClientPortId(ev->source.client, ev->source.port));
-                                if(sysExVector.at(11)==0x00 && sysExVector.at(12)==0x00 && length==PatchCommonLength && msDataState.dumpState==SysExDumpState::ExpectingCommonData)
-                                { // Patch common data;
-                                    if( iter != msMap.end())
-                                        iter->second.data.insert(iter->second.data.end(), &sysExVector.at(13), &sysExVector.at(13)+PatchCommonLength);
-                                    msDataState.dumpState = SysExDumpState::ExpectingEffectData;
-                                }
-                                else if(sysExVector.at(11)==0x01 && sysExVector.at(12)==0x00 && length==PatchEffectLength && msDataState.dumpState==SysExDumpState::ExpectingEffectData)
-                                { // Patch effect data;
-                                    if( iter != msMap.end())
-                                        iter->second.data.insert(iter->second.data.end(), &sysExVector.at(13), &sysExVector.at(13)+PatchEffectLength);
-                                    msDataState.dumpState = SysExDumpState::ExpectingEnd;
-                                }
-                            }
+                           handleGuitarBassEffectControlChange(it, ev->data.control.value, AmpGainOffset, BassPreampGainOffset);
+                        }
+                    }
+                    else if((int)ccnumber == masterCCNumber)
+                    {
+                        for (auto &it: msMap)
+                        {
+                           handleGuitarBassEffectControlChange(it, ev->data.control.value, AmpMasterOffset, BassPreampMasterOffset);
+                        }
+                    }
+                    else if((int)ccnumber == effectLevelCCNumber)
+                    {
+                        for (auto &it: msMap)
+                        {
+                           handle8BandDelayControlChange(it, ev->data.control.value);
                         }
                     }
                 }
-                sysExVector.clear();
             }
-
-        }
-        else if(ev->type==SND_SEQ_EVENT_PGMCHANGE)
-        {
-            if( (midiChannel==0 || (ev->data.raw8.d[0] & 0x0F)+1 == midiChannel) && ev->data.raw8.d[8] < numOfPatches)
+            else if(ev->type==SND_SEQ_EVENT_PORT_START)
             {
-                currentProgram = ev->data.raw8.d[8];
-                emit programChanged(currentProgram);
+                snd_seq_client_info_t *cinfo;
+                snd_seq_port_info_t *pinfo;
 
-                sendAllToTemp();
-            }
-        }
-        else if(ev->type==SND_SEQ_EVENT_CONTROLLER)
-        {
-            if( (midiChannel==0 || (ev->data.raw8.d[0] & 0x0F)+1 == midiChannel))
-            {
-                unsigned int ccnumber = ev->data.control.param;
-                if((int)ccnumber == gainCCNumber)
+                snd_seq_client_info_alloca(&cinfo);
+                snd_seq_port_info_alloca(&pinfo);
+
+                snd_seq_get_any_client_info(handle, ev->data.addr.client, cinfo);
+                snd_seq_get_any_port_info(handle, ev->data.addr.client, ev->data.addr.port, pinfo);
+                unsigned int cap = snd_seq_port_info_get_capability(pinfo);
+                MidiClientPortId cpid(ev->data.addr.client, ev->data.addr.port);
+
+                if(isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
                 {
-                    for (auto &it: msMap)
+                    auto findIter = msMap.find(cpid);
+                    if(findIter == msMap.end())
                     {
-                       handleGuitarBassEffectControlChange(it, ev->data.control.value, AmpGainOffset, BassPreampGainOffset);
+                        sysExBufferMap.insert({cpid, vector<unsigned char>()});
+
+                        subscribePort(handle, thisOutPort, cpid);
+                        subscribePort(handle, cpid, thisInPort);
+                        pair<map<MidiClientPortId, MSDataState>::iterator,bool> ret;
+                        ret = msMap.insert({cpid, MSDataState()} );
+                        ret.first->second.dumpState = SysExDumpState::ExpectingStart;
+                        msleep(1000); // Wait 1s until MS gets ready after power on
+                        requestPatch(++(ret.first->second.patchInRequest), thisOutPort, ret.first->first);
+
+                        cout << "Magicstomp connected[" << static_cast<unsigned int>(ev->data.addr.client)
+                             << ":" << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
                     }
                 }
-                else if((int)ccnumber == masterCCNumber)
+                else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
+                        cap & (SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ))
                 {
-                    for (auto &it: msMap)
+                    subscribePort( handle, cpid, thisInPort);
+                    cout << "Hardware MIDI IN device connected[" << static_cast<unsigned int>(ev->data.addr.client)
+                         << ":" << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
+
+                    if(midiThrough)
                     {
-                       handleGuitarBassEffectControlChange(it, ev->data.control.value, AmpMasterOffset, BassPreampMasterOffset);
-                    }
-                }
-                else if((int)ccnumber == effectLevelCCNumber)
-                {
-                    for (auto &it: msMap)
-                    {
-                       handle8BandDelayControlChange(it, ev->data.control.value);
+                        subscribePort( handle, cpid, MidiClientPortId(14,0));
+                        if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
+                                            cap & (SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE))
+                            subscribePort( handle, MidiClientPortId(14,0), cpid);
                     }
                 }
             }
-        }
-        else if(ev->type==SND_SEQ_EVENT_PORT_START)
-        {
-            snd_seq_client_info_t *cinfo;
-            snd_seq_port_info_t *pinfo;
-
-            snd_seq_client_info_alloca(&cinfo);
-            snd_seq_port_info_alloca(&pinfo);
-
-            snd_seq_get_any_client_info(handle, ev->data.addr.client, cinfo);
-            snd_seq_get_any_port_info(handle, ev->data.addr.client, ev->data.addr.port, pinfo);
-            unsigned int cap = snd_seq_port_info_get_capability(pinfo);
-            MidiClientPortId cpid(ev->data.addr.client, ev->data.addr.port);
-
-            if(isMagicstomp(snd_seq_client_info_get_name(cinfo), snd_seq_port_info_get_name(pinfo)))
+            else if(ev->type==SND_SEQ_EVENT_PORT_EXIT)
             {
-                auto findIter = msMap.find(cpid);
-                if(findIter == msMap.end())
+                MidiClientPortId mscpid(ev->data.addr.client, ev->data.addr.port);
+
+                if(msMap.erase(mscpid) == 1)
                 {
-                    sysExBufferMap.insert({cpid, vector<unsigned char>()});
+                    sysExBufferMap.erase(mscpid);
 
-                    subscribePort(handle, thisOutPort, cpid);
-                    subscribePort(handle, cpid, thisInPort);
-                    pair<map<MidiClientPortId, MSDataState>::iterator,bool> ret;
-                    ret = msMap.insert({cpid, MSDataState()} );
-                    ret.first->second.dumpState = SysExDumpState::ExpectingStart;
-                    msleep(1000); // Wait 1s until MS gets ready after power on
-                    requestPatch(++(ret.first->second.patchInRequest), thisOutPort, ret.first->first);
+                    emit msDisconnected((mscpid.clientId() << 8) | mscpid.portId());
 
-                    cout << "Magicstomp connected[" << static_cast<unsigned int>(ev->data.addr.client)
+                    cout << "Magicstomp disconnected[" << static_cast<unsigned int>(ev->data.addr.client)
                          << ":" << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
                 }
             }
-            else if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
-                    cap & (SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ))
-            {
-                subscribePort( handle, cpid, thisInPort);
-                cout << "Hardware MIDI IN device connected[" << static_cast<unsigned int>(ev->data.addr.client)
-                     << ":" << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
 
-                if(midiThrough)
-                {
-                    subscribePort( handle, cpid, MidiClientPortId(14,0));
-                    if((snd_seq_port_info_get_type(pinfo) & SND_SEQ_PORT_TYPE_HARDWARE) == SND_SEQ_PORT_TYPE_HARDWARE &&
-                                        cap & (SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE))
-                        subscribePort( handle, MidiClientPortId(14,0), cpid);
-                }
-            }
-        }
-        else if(ev->type==SND_SEQ_EVENT_PORT_EXIT)
-        {
-            MidiClientPortId mscpid(ev->data.addr.client, ev->data.addr.port);
-
-            if(msMap.erase(mscpid) == 1)
-            {
-                sysExBufferMap.erase(mscpid);
-
-                emit msDisconnected((mscpid.clientId() << 8) | mscpid.portId());
-
-                cout << "Magicstomp disconnected[" << static_cast<unsigned int>(ev->data.addr.client)
-                     << ":" << static_cast<unsigned int>(ev->data.addr.port) << "]" << endl;
-            }
-        }
-
-        //cout << "MIDI Event. Type = " << static_cast<int>(ev->type) << " Patch idx=" << patchInRequest << endl;
+            //cout << "MIDI Event. Type = " << static_cast<int>(ev->type) << " Patch idx=" << patchInRequest << endl;
         snd_seq_free_event(ev);
+        }
     }
 }
 
@@ -639,7 +658,11 @@ void MSSwitcherThread::setMidiThrough(bool val)
 
 void MSSwitcherThread::switchPatchUp()
 {
-    currentProgram = (currentProgram+1)%(numOfPatches-1);
+    if(currentProgram >= numOfPatches-1) {
+        currentProgram = 0;
+    } else {
+        currentProgram++;
+    }
     emit programChanged(currentProgram);
     sendAllToTemp();
 }
