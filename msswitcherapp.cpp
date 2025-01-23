@@ -46,14 +46,14 @@ MSSwitcherApp::MSSwitcherApp(int &argc, char **argv)
     setOrganizationDomain(QStringLiteral("robertvetter.com"));
     setApplicationVersion(QStringLiteral("1.10"));
 
-    MSSwitcherSettings settings;
+    settings =  new MSSwitcherSettings(this);
 
     mssThread = new MSSwitcherThread(this);
-    mssThread->setMidiChannel(settings.MidiChannel());
-    mssThread->setMasterCCNumber(settings.MasterCCNumber());
-    mssThread->setGainCCNumber(settings.GainCCNumber());
-    mssThread->setEffectCCNumber(settings.EffectCCNumber());
-    mssThread->setMidiThrough(settings.MidiThrough());
+    mssThread->setMidiChannel(settings->MidiChannel());
+    mssThread->setMasterCCNumber(settings->MasterCCNumber());
+    mssThread->setGainCCNumber(settings->GainCCNumber());
+    mssThread->setEffectCCNumber(settings->EffectCCNumber());
+    mssThread->setMidiThrough(settings->MidiThrough());
 
     connect(mssThread,SIGNAL(programChanged(uchar)),this,SIGNAL(programChanged(uchar)));
     connect(mssThread,SIGNAL(currentPatchChanged(uint,QString,bool)),this,SIGNAL(currentPatchChanged(uint,QString,bool)));
@@ -94,29 +94,100 @@ void MSSwitcherApp::onGpioEvent(int offset, int id)
 {
 #ifdef WITH_SSD1306_DISPLAY
     if(offset==0) { // F1 Key
-        if(id==GPIO_V2_LINE_EVENT_RISING_EDGE && mssThread->isInSystexDumpState() == false) {
-            f1KeyTimer->start(2000);
-        } else if(id==GPIO_V2_LINE_EVENT_FALLING_EDGE) {
-            if(! f1KeyTimer->isActive())
-                return;
-            f1KeyTimer->stop();
-            ssd1306display->setInverted(false);
-            if(f1TimerCounter==1 && mssThread->isInSystexDumpState() == false) {
-                mssThread->exitEventLoop();
-                mssThread->wait();
-                mssThread->start();
+        if(opMode == Normal) {
+            if(id==GPIO_V2_LINE_EVENT_RISING_EDGE && mssThread->isInSystexDumpState() == false) {
+                f1KeyTimer->start(2000);
+            } else if(id==GPIO_V2_LINE_EVENT_FALLING_EDGE) {
+                if(! f1KeyTimer->isActive())
+                    return;
+                f1KeyTimer->stop();
+                ssd1306display->setInverted(false);
+                if(f1TimerCounter==1 && mssThread->isInSystexDumpState() == false) {
+                    mssThread->exitEventLoop();
+                    mssThread->wait();
+                    mssThread->start();
+                }
+                f1TimerCounter = 0;
             }
-            f1TimerCounter = 0;
+            return;
+        }
+        if(id != GPIO_V2_LINE_EVENT_RISING_EDGE)
+            return;
+        if(opMode == MidiChannelEdit) {
+            opMode = GainCCEdit;
+            ssd1306display->drawParamVal("Gain CC", mssThread->GainCCNumber() < 0?"OFF":QByteArray::number(mssThread->GainCCNumber()));
+        } else if(opMode == GainCCEdit) {
+            opMode = MasterCCEdit;
+            ssd1306display->drawParamVal("Master CC", mssThread->MasterCCNumber() < 0?"OFF":QByteArray::number(mssThread->MasterCCNumber()));
+        } else if(opMode == MasterCCEdit) {
+            opMode = EffectCCEdit;
+            ssd1306display->drawParamVal("Effect CC", mssThread->EffectCCNumber() < 0?"OFF":QByteArray::number(mssThread->EffectCCNumber()));
+        } else if(opMode == EffectCCEdit) {
+            opMode = MidiThroughEdit;
+            ssd1306display->drawParamVal("Midi THRU", mssThread->MidiThrough() == true?"ON":"OFF");
+        } else if(opMode == MidiThroughEdit) {
+            ssd1306display->setParamEditMode(false);
+            opMode = Normal;
         }
     }
     else if(offset==2) { // F2 Key
-        if(id==GPIO_V2_LINE_EVENT_FALLING_EDGE) {
-            mssThread->switchPatchUp();
+        if(id==GPIO_V2_LINE_EVENT_RISING_EDGE) {
+            if(opMode == Normal) {
+                mssThread->switchPatchDown();
+            } else if(opMode == MidiChannelEdit) {
+                if(mssThread->MidiChannel()==0)
+                    return;
+                setMidiChannel(mssThread->MidiChannel()-1);
+                ssd1306display->drawParamVal("Midi Channel", mssThread->MidiChannel() == 0?"OMNI":QByteArray::number(mssThread->MidiChannel()));
+            } else if(opMode == GainCCEdit) {
+                if(mssThread->GainCCNumber()<0)
+                    return;
+                setGainCCNumber(mssThread->GainCCNumber()-1);
+                ssd1306display->drawParamVal("Gain CC", mssThread->GainCCNumber() < 00?"OFF":QByteArray::number(mssThread->GainCCNumber()));
+            } else if(opMode == MasterCCEdit) {
+                if(mssThread->MasterCCNumber()<0)
+                    return;
+                setMasterCCNumber(mssThread->MasterCCNumber()-1);
+                ssd1306display->drawParamVal("Master CC", mssThread->MasterCCNumber() < 0?"OFF":QByteArray::number(mssThread->MasterCCNumber()));
+            } else if(opMode == EffectCCEdit) {
+                if(mssThread->EffectCCNumber()<0)
+                    return;
+                setEffectCCNumber(mssThread->EffectCCNumber()-1);
+                ssd1306display->drawParamVal("Effect CC", mssThread->EffectCCNumber() < 0?"OFF":QByteArray::number(mssThread->EffectCCNumber()));
+            } else if(opMode == MidiThroughEdit) {
+                setMidiThrough(false);
+                ssd1306display->drawParamVal("Midi THRU", "OFF");
+            }
         }
     }
     else if(offset==3) { // F3 Key
-        if(id==GPIO_V2_LINE_EVENT_FALLING_EDGE) {
-            mssThread->switchPatchDown();
+        if(id==GPIO_V2_LINE_EVENT_RISING_EDGE) {
+            if(opMode == Normal) {
+                mssThread->switchPatchUp();
+            } else if(opMode == MidiChannelEdit) {
+                if(mssThread->MidiChannel()>=16)
+                    return;
+                setMidiChannel(mssThread->MidiChannel()+1);
+                ssd1306display->drawParamVal("Midi Channel", mssThread->MidiChannel() == 0?"OMNI":QByteArray::number(mssThread->MidiChannel()));
+            } else if(opMode == GainCCEdit) {
+                if(mssThread->GainCCNumber()>=127)
+                    return;
+                setGainCCNumber(mssThread->GainCCNumber()+1);
+                ssd1306display->drawParamVal("Gain CC", mssThread->GainCCNumber() < 00?"OFF":QByteArray::number(mssThread->GainCCNumber()));
+            } else if(opMode == MasterCCEdit) {
+                if(mssThread->MasterCCNumber()>=127)
+                    return;
+                setMasterCCNumber(mssThread->MasterCCNumber()+1);
+                ssd1306display->drawParamVal("Master CC", mssThread->MasterCCNumber() < 0?"OFF":QByteArray::number(mssThread->MasterCCNumber()));
+            } else if(opMode == EffectCCEdit) {
+                if(mssThread->EffectCCNumber()>=127)
+                    return;
+                setEffectCCNumber(mssThread->EffectCCNumber()+1);
+                ssd1306display->drawParamVal("Effect CC", mssThread->EffectCCNumber() < 0?"OFF":QByteArray::number(mssThread->EffectCCNumber()));
+            } else if(opMode == MidiThroughEdit) {
+                setMidiThrough(true);
+                ssd1306display->drawParamVal("Midi THRU", "ON");
+            }
         }
     }
 #endif
@@ -165,6 +236,15 @@ void MSSwitcherApp::onF1Timer()
         ssd1306display->setInverted(true);
     } else {
         ssd1306display->setInverted(false);
+    }
+    if(f1TimerCounter > 1) {
+
+        ssd1306display->setParamEditMode(true);
+        ssd1306display->drawParamVal("Midi Channel", mssThread->MidiChannel() == 0?"OMNI":QByteArray::number(mssThread->MidiChannel()));
+        opMode = MidiChannelEdit;
+
+        f1KeyTimer->stop();
+        f1TimerCounter = 0;
     }
 #endif
 }

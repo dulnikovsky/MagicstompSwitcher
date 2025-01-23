@@ -40,6 +40,11 @@ void SSD1306Display::updateDisplay()
 {
     ssd1306_framebuffer_box_t bbox;
 
+    if(param_edit_fbp != nullptr) {
+
+        ssd1306_i2c_display_update(oled, param_edit_fbp);
+        return;
+    }
     ssd1306_framebuffer_clear(fbp);
     ssd1306_framebuffer_draw_text(fbp, programNumStr, 2, 0, 24, SSD1306_FONT_VERA_BOLD, 6, &bbox);
 
@@ -75,4 +80,32 @@ void SSD1306Display::setInverted(bool val)
         ssd1306_i2c_run_cmd(oled, SSD1306_I2C_CMD_DISP_INVERTED, 0, 0);
     else
         ssd1306_i2c_run_cmd(oled, SSD1306_I2C_CMD_DISP_NORMAL, 0, 0);
+}
+
+void SSD1306Display::setParamEditMode(bool val)
+{
+    if(val) {
+        param_edit_fbp = ssd1306_framebuffer_create(oled->width, oled->height, oled->err);
+    } else {
+        if(param_edit_fbp) {
+            ssd1306_framebuffer_destroy(param_edit_fbp);
+            param_edit_fbp = nullptr;
+        }
+    }
+    updateDisplay();
+}
+
+bool SSD1306Display::drawParamVal(const QByteArray &paramter, const QByteArray &val)
+{
+    if(param_edit_fbp == nullptr)
+        return false;
+
+    ssd1306_framebuffer_box_t bbox;
+
+    ssd1306_framebuffer_clear(param_edit_fbp);
+    ssd1306_framebuffer_draw_text(param_edit_fbp, paramter.constData(), paramter.size(), 0, 24, SSD1306_FONT_DEFAULT, 4, &bbox);
+    ssd1306_framebuffer_draw_text(param_edit_fbp, val.constData(), val.size(), 32, 48, SSD1306_FONT_DEFAULT, 4, &bbox);
+    updateDisplay();
+
+    return true;
 }

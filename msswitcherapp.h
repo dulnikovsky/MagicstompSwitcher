@@ -33,6 +33,7 @@
 class MSSwitcherThread;
 class SSD1306Display;
 class QTimer;
+class MSSwitcherSettings;
 
 #ifdef WITH_SSD1306_DISPLAY
 #include "gpiohandlerthread.h"
@@ -84,6 +85,17 @@ private:
 #endif
     QTimer *f1KeyTimer{nullptr};
     quint32 f1TimerCounter{0};
+    MSSwitcherSettings *settings;
+
+    enum OperatingMode {
+        Normal,
+        MidiChannelEdit,
+        GainCCEdit,
+        MasterCCEdit,
+        EffectCCEdit,
+        MidiThroughEdit
+    };
+    enum OperatingMode opMode{Normal};
 };
 
 #endif

@@ -13,16 +13,18 @@ public:
 
 public slots:
     void setCurrentProgram(unsigned char val);
-
     void onCurrentPatchChanged(unsigned int id, const QString &name, bool isRequesting);
-
     void onMsDisconnected(unsigned int id);
-
     void setInverted(bool val);
+
+    void setParamEditMode(bool val);
+
+    bool drawParamVal(const QByteArray &paramter, const QByteArray &val);
 
 private:
     ssd1306_i2c_t *oled{nullptr};
     ssd1306_framebuffer_t *fbp{nullptr};
+    ssd1306_framebuffer_t *param_edit_fbp{nullptr};
 
     QMap<int, QByteArray> currentPatchNamesMap;
     char programNumStr[2];
