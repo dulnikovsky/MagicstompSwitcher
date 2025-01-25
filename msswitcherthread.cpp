@@ -596,7 +596,7 @@ bool MSSwitcherThread::checkCCIntencity(MSDataState &msstate)
             msstate.ccIntensity = 0;
     }
 
-    qDebug("CC event delta =%lld, current intensity=%d", ccDeltaTime, msstate.ccIntensity);
+    //qDebug("CC event delta =%lld, current intensity=%d", ccDeltaTime, msstate.ccIntensity);
 
     if(msstate.ccIntensity < 40) // Magic number after tests
     {

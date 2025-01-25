@@ -1,5 +1,8 @@
 
 #include "ssd1306_display.h"
+#include <QCoreApplication>
+
+#include <QTimer>
 
 SSD1306Display::SSD1306Display(const char *i2c_dev, QObject *parent)
     :QObject(parent)
@@ -14,8 +17,38 @@ SSD1306Display::SSD1306Display(const char *i2c_dev, QObject *parent)
         return;
     }
     fbp = ssd1306_framebuffer_create(oled->width, oled->height, oled->err);
-
     ssd1306_i2c_display_clear(oled);
+
+    ssd1306_framebuffer_t *splash_fbp = ssd1306_framebuffer_create(oled->width, oled->height, oled->err);
+
+    QByteArray appNameArr = qApp->applicationName().toLocal8Bit();
+    QByteArray appVersionArr = qApp->applicationVersion().toLocal8Bit();
+
+    ssd1306_framebuffer_draw_text(splash_fbp, appNameArr.left(10).constData(), 10, 0, 24, SSD1306_FONT_DEFAULT, 4, NULL);
+    ssd1306_framebuffer_draw_text(splash_fbp, appNameArr.mid(10).constData(), appNameArr.size()-10, 0, 48, SSD1306_FONT_DEFAULT, 4, NULL);
+    ssd1306_framebuffer_draw_text(splash_fbp, appVersionArr.constData(), appVersionArr.size(), 64, 64, SSD1306_FONT_DEFAULT, 3, NULL);
+
+    ssd1306_i2c_display_update(oled, splash_fbp);
+
+    splashTimer = new QTimer(this);
+    splashTimer->setSingleShot(true);
+    connect(splashTimer, SIGNAL(timeout()), this, SLOT(finishSplash()));
+    splashTimer->start(splashScreenTimeout);
+
+    ssd1306_framebuffer_destroy(splash_fbp);
+
+}
+
+SSD1306Display::~SSD1306Display()
+{
+    if(param_edit_fbp != nullptr)
+        ssd1306_framebuffer_destroy(param_edit_fbp);
+
+    if(fbp != nullptr)
+        ssd1306_framebuffer_destroy(fbp);
+
+    if(oled != nullptr)
+        ssd1306_i2c_close(oled);
 }
 
 void SSD1306Display::setCurrentProgram(unsigned char val)
@@ -56,6 +89,9 @@ void SSD1306Display::updateDisplay()
         ssd1306_framebuffer_draw_text(fbp, it.value().constData(), it.value().size(), x, y, SSD1306_FONT_DEFAULT, 4, &bbox);
         y += 16;
     }
+
+    if(splashTimer != nullptr && splashTimer->isActive())
+        return;
 
     ssd1306_i2c_display_update(oled, fbp);
 
@@ -108,4 +144,12 @@ bool SSD1306Display::drawParamVal(const QByteArray &paramter, const QByteArray &
     updateDisplay();
 
     return true;
+}
+
+void SSD1306Display::finishSplash()
+{
+    splashTimer->deleteLater();
+    splashTimer = nullptr;
+
+    updateDisplay();
 }

@@ -5,11 +5,14 @@
 #include <ssd1306_i2c.h>
 #include <QMap>
 
+class QTimer;
+
 class SSD1306Display : public QObject
 {
     Q_OBJECT
 public:
     explicit SSD1306Display(const char *i2c_dev, QObject *parent = nullptr);
+    ~SSD1306Display();
 
 public slots:
     void setCurrentProgram(unsigned char val);
@@ -21,6 +24,9 @@ public slots:
 
     bool drawParamVal(const QByteArray &paramter, const QByteArray &val);
 
+private slots:
+    void finishSplash();
+
 private:
     ssd1306_i2c_t *oled{nullptr};
     ssd1306_framebuffer_t *fbp{nullptr};
@@ -30,6 +36,10 @@ private:
     char programNumStr[2];
     bool isRequestingState{false};
     bool lastRequestingState{false};
+
+    const int splashScreenTimeout{2000};
+
+    QTimer *splashTimer{nullptr};
 
     void updateDisplay();
 };
