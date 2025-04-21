@@ -26,7 +26,10 @@ else()
 endif()
 
 if(${WITH_SSD1306_DISPLAY} STREQUAL ON)
+    message("Building with ssd1306 display GUI")
     add_compile_definitions(WITH_SSD1306_DISPLAY)
+else()
+    message("Building without ssd1306 display GUI")
 endif()
 
 set(PROJECT_SOURCES
